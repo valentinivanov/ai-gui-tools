@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@agentui/core": ["packages/core/src/index.ts"],
+      "@agentui/openai": ["packages/openai/src/index.ts"],
+      "@agentui/react": ["packages/react/src/index.tsx"],
+      "@agentui/react/styles.css": ["packages/react/src/styles.css"]
+    }
+  }
+}

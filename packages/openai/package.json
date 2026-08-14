@@ -1,0 +1,30 @@
+{
+  "name": "@agentui/openai",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --external openai",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentui/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "openai": "^4.77.0",
+    "tsup": "^8.3.5"
+  }
+}

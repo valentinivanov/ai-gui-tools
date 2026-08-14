@@ -1,0 +1,219 @@
+.agentui {
+  color: #1b1f24;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.agentui-view {
+  border: 1px solid #d7dce2;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.agentui-view + .agentui-view {
+  margin-top: 16px;
+}
+
+.agentui-view h2,
+.agentui-view h3,
+.agentui-view p {
+  margin-top: 0;
+}
+
+.agentui-view h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+.agentui-view h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.agentui-stack,
+.agentui-form {
+  display: grid;
+  gap: 12px;
+}
+
+.agentui-text,
+.agentui-markdown p,
+.agentui-form p,
+.agentui-confirm p {
+  color: #48515d;
+  line-height: 1.5;
+}
+
+.agentui-field {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.agentui-field input,
+.agentui-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c9d1da;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #1b1f24;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 400;
+}
+
+.agentui-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.agentui-check input {
+  width: 16px;
+  height: 16px;
+}
+
+.agentui-button {
+  min-height: 36px;
+  border: 1px solid #b9c2cc;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.agentui-button-primary {
+  border-color: #166534;
+  color: #ffffff;
+  background: #15803d;
+}
+
+.agentui-button-secondary {
+  color: #24303d;
+  background: #f7f9fb;
+}
+
+.agentui-button-danger {
+  border-color: #b42318;
+  color: #ffffff;
+  background: #c7372f;
+}
+
+.agentui-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agentui-table-wrap {
+  overflow-x: auto;
+}
+
+.agentui-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.agentui-table th,
+.agentui-table td {
+  border-bottom: 1px solid #e2e7ed;
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.agentui-table th {
+  color: #3b4652;
+  background: #f7f9fb;
+  font-weight: 700;
+}
+
+.agentui-tree,
+.agentui-tree ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.agentui-tabs {
+  display: grid;
+  gap: 12px;
+}
+
+.agentui-tab-list {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #d7dce2;
+}
+
+.agentui-tab-list button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 8px 10px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.agentui-tab-list button.is-active {
+  border-bottom-color: #15803d;
+  font-weight: 700;
+}
+
+.agentui-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.agentui-progress progress {
+  width: 100%;
+  height: 12px;
+}
+
+.agentui-progress-label {
+  font-weight: 700;
+}
+
+.agentui-progress-status {
+  color: #48515d;
+  font-size: 13px;
+}
+
+.agentui-diff details {
+  border: 1px solid #d7dce2;
+  border-radius: 6px;
+}
+
+.agentui-diff details + details {
+  margin-top: 8px;
+}
+
+.agentui-diff summary {
+  padding: 9px 10px;
+  cursor: pointer;
+  font-weight: 700;
+  background: #f7f9fb;
+}
+
+.agentui-diff pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 12px;
+  color: #17202a;
+  background: #fbfcfd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.agentui-confirm {
+  display: grid;
+  gap: 10px;
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@agentui/basic-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentui/core": "workspace:*",
+    "@agentui/openai": "workspace:*",
+    "@agentui/react": "workspace:*",
+    "@vitejs/plugin-react": "^4.3.4",
+    "openai": "^4.77.0",
+    "vite": "^6.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5"
+  }
+}
