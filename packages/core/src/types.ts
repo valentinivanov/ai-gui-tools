@@ -189,6 +189,8 @@ export type UIEvent =
   | { type: "change"; id: string; value: unknown }
   | { type: "submit"; id: string; values: Record<string, unknown> };
 
+export type UIEventPolicy = "local" | "model";
+
 export type AgentUICommand =
   | { type: "replace_view"; view: View }
   | { type: "close_view"; id: string };

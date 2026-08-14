@@ -1,4 +1,5 @@
 export { createAgentUI } from "./agent-ui.js";
+export { classifyUIEvent } from "./events.js";
 export { agentUIInstructions } from "./instructions.js";
 export { defaultCapabilities } from "./tools.js";
 export type {
@@ -31,6 +32,7 @@ export type {
   TreeNode,
   TreeWidget,
   UIEvent,
+  UIEventPolicy,
   View,
   Widget
 } from "./types.js";

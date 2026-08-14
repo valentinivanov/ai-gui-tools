@@ -1,0 +1,15 @@
+{
+  "name": "@agentui/mcp-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node ../../packages/mcp/dist/cli.js --http --port=3000",
+    "stdio": "node ../../packages/mcp/dist/cli.js --stdio",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "node -e \"console.log('No TypeScript sources in examples/mcp')\""
+  },
+  "dependencies": {
+    "@agentui/mcp": "workspace:*"
+  }
+}

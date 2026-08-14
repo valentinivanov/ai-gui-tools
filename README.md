@@ -20,7 +20,9 @@ user request
 - `@agentui/core`: protocol types, state management, semantic tool provider, event handling.
 - `@agentui/openai`: OpenAI Responses API tool conversion and tool-call helpers.
 - `@agentui/react`: reference React renderer and minimal default CSS.
+- `@agentui/mcp`: MCP tools, Streamable HTTP/stdio server helpers, and MCP Apps resource shell.
 - `examples/basic`: Vite + React PoC with mock mode and optional live OpenAI mode.
+- `examples/mcp`: runnable MCP server example.
 
 The monorepo root is private. Package names use the intended future names, but this PoC is not set up for publishing.
 
@@ -89,6 +91,45 @@ ui.subscribeEvents((event) => {
 
 AgentUI owns UI state, not conversation history. The current v0 state model uses whole-view replacement with stable view and widget IDs. The internal API is intentionally simple enough to add incremental view operations later.
 
+## Architecture
+
+AgentUI is a renderer-independent interactive UI capability for LLMs.
+
+Models access AgentUI through ordinary semantic UI tools. Those tools can currently be transported through:
+
+- the OpenAI SDK adapter
+- MCP
+
+```text
+                    LLM
+                     |
+              semantic UI tools
+                     |
+                AgentUI Core
+                     |
+        +------------+------------+
+        |                         |
+     React renderer            future renderers
+        |
+        v
+      user
+
+
+Tool transport:
+
+      OpenAI SDK          MCP
+           \\              /
+            \\            /
+             AgentUI Core
+```
+
+Keep these concepts separate:
+
+- Tool transport: OpenAI function tools or MCP tools.
+- UI protocol: AgentUI views, widgets, and semantic events.
+- UI renderer: React today; terminal, native, or other renderers later.
+- Application actions: privileged host tools such as deploy, filesystem, git, or database actions.
+
 ## OpenAI Responses Integration
 
 ```ts
@@ -133,6 +174,75 @@ ui.subscribeEvents((event) => {
   // Send input through your existing Responses API loop.
 });
 ```
+
+## MCP Integration
+
+`@agentui/mcp` exposes the same AgentUI semantic tools through MCP. Canonical core names remain dotted, such as `ui.form`, while the MCP adapter maps them to host-safe transport names by default, such as `ui_form`.
+
+Embedded server usage:
+
+```ts
+import { createAgentUI } from "@agentui/core";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAgentUITools } from "@agentui/mcp";
+
+const ui = createAgentUI();
+const server = new McpServer({ name: "my-server", version: "1.0.0" });
+
+registerAgentUITools(server, {
+  ui,
+  capabilities: ["form", "table", "compare", "confirm"]
+});
+
+registerMyApplicationTools(server);
+```
+
+Standalone Streamable HTTP:
+
+```sh
+pnpm build
+pnpm agentui-mcp -- --http --port=3000
+```
+
+Endpoint:
+
+```text
+http://localhost:3000/mcp
+```
+
+Standalone stdio:
+
+```sh
+pnpm build
+pnpm agentui-mcp -- --stdio
+```
+
+The MCP package also registers an MCP Apps resource at:
+
+```text
+ui://agentui/view/v1
+```
+
+UI-producing tools include `_meta.ui.resourceUri` pointing at that resource and return structured state as well as text fallback content. Hosts without MCP Apps rendering can still inspect the structured/text result.
+
+Event policy:
+
+- `change` is local by default and updates AgentUI state without a model turn.
+- `submit` is a model-turn event.
+- `:confirm` and `:cancel` clicks are model-turn events.
+- Future widgets can opt into different event policies without changing the core transport model.
+
+ChatGPT testing path:
+
+1. Start the Streamable HTTP server locally.
+2. Expose `http://localhost:3000/mcp` over an HTTPS URL using your preferred tunnel or deployment path.
+3. Register/connect that HTTPS MCP endpoint in ChatGPT Developer Mode / MCP Apps.
+4. Try prompts such as `Help me configure a TypeScript backend project.` and `Compare PostgreSQL, SQLite and DynamoDB for an offline-first application.`
+5. Also try `Explain what dependency injection is.` Correct non-activation matters too.
+
+Codex testing path:
+
+Connect the stdio command or Streamable HTTP endpoint using the Codex MCP configuration mechanism available in your host. Initially expect tool discovery and invocation. Interactive rendering depends on whether that Codex surface supports MCP Apps resources; do not assume every MCP-capable host renders `text/html;profile=mcp-app`.
 
 ## React Renderer
 
