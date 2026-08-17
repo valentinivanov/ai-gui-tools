@@ -2,7 +2,7 @@ import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/e
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const defaultAgentUIResourceUri = "ui://agentui/view/v1";
-export const agentUIAppVersion = "20260817095152";
+export const agentUIAppVersion = "20260817104538";
 
 export function registerAgentUIAppResource(server: Pick<McpServer, "registerResource">, resourceUri = defaultAgentUIResourceUri): void {
   registerAppResource(
@@ -63,7 +63,21 @@ export function agentUIAppHtml(): string {
     th, td { border-bottom: 1px solid #e2e7ed; padding: 8px; text-align: left; vertical-align: top; }
     th { background: #f7f9fb; }
     th.table-name { background: #e9eef4; color: #1f2937; font-weight: 750; text-align: left; }
+    .plot { display: grid; gap: 8px; }
+    .plot-title { margin: 0; font-size: 14px; font-weight: 700; }
+    .plot svg { width: 100%; min-height: 220px; border: 1px solid #d7dce2; border-radius: 6px; background: #fbfcfd; }
+    .plot-axis { stroke: #94a3b8; stroke-width: 1; }
+    .plot-tick { stroke: #64748b; stroke-width: 1; }
+    .plot-label { fill: #475569; font-size: 11px; font-weight: 600; }
+    .plot-grid { stroke: #e2e8f0; stroke-width: 1; }
+    .plot-line { fill: none; stroke: #2563eb; stroke-width: 2; }
+    .plot-bar { stroke: #2563eb; stroke-width: 5; stroke-linecap: round; opacity: 0.72; }
+    .plot-point { fill: #2563eb; stroke: #ffffff; stroke-width: 1.5; }
     pre { overflow: auto; margin: 0; padding: 10px; background: #f7f9fb; border: 1px solid #e2e7ed; border-radius: 6px; }
+    .diff-lines { overflow: auto; margin: 0; padding: 10px; background: #f7f9fb; border: 1px solid #e2e7ed; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; line-height: 1.45; }
+    .diff-line { white-space: pre; }
+    .diff-line-added { background: #edf8ef; color: #14532d; }
+    .diff-line-removed { background: #fff1f1; color: #7f1d1d; }
     .empty { color: #596574; border: 1px dashed #b9c2cc; border-radius: 8px; padding: 18px; text-align: center; }
   </style>
 </head>
@@ -263,6 +277,7 @@ export function agentUIAppHtml(): string {
       if (widget.type === "diff") return renderDiff(widget);
       if (widget.type === "confirmation") return renderConfirmation(widget);
       if (widget.type === "form") return renderForm(widget);
+      if (widget.type === "plot") return renderPlot(widget);
       if (widget.type === "progress") {
         const wrap = el("div", "stack");
         if (widget.label) wrap.append(el("strong", "", widget.label));
@@ -280,6 +295,159 @@ export function agentUIAppHtml(): string {
       if (widget.title) wrap.append(el("h3", "container-title", widget.title));
       for (const child of widget.children ?? []) wrap.append(renderWidget(child));
       return wrap;
+    }
+    function renderPlot(widget) {
+      const points = normalizedPlotPoints(widget.points);
+      const wrap = el("div", "plot");
+      if (widget.title) wrap.append(el("h3", "plot-title", widget.title));
+      const svg = svgEl("svg");
+      svg.setAttribute("viewBox", "0 0 640 280");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", widget.title ?? "Plot");
+      if (points.length === 0) {
+        const text = svgEl("text");
+        text.setAttribute("x", "320"); text.setAttribute("y", "140"); text.setAttribute("text-anchor", "middle"); text.setAttribute("fill", "#64748b");
+        text.textContent = "No data";
+        svg.append(text);
+        wrap.append(svg);
+        return wrap;
+      }
+      const plot = plotScale(points);
+      addPlotAxes(svg, plot);
+      if (widget.mode === "lines") {
+        const line = svgEl("polyline");
+        line.setAttribute("class", "plot-line");
+        line.setAttribute("points", points.map((point) => plot.x(point.x) + "," + plot.y(point.y)).join(" "));
+        svg.append(line);
+      }
+      if (widget.mode === "bars") {
+        for (const point of points) {
+          const bar = svgEl("line");
+          bar.setAttribute("class", "plot-bar");
+          bar.setAttribute("x1", String(plot.x(point.x))); bar.setAttribute("x2", String(plot.x(point.x)));
+          bar.setAttribute("y1", String(plot.xAxisY)); bar.setAttribute("y2", String(plot.y(point.y)));
+          svg.append(bar);
+        }
+      }
+      if (widget.mode !== "bars") {
+        for (const point of points) {
+          const circle = svgEl("circle");
+          circle.setAttribute("class", "plot-point");
+          circle.setAttribute("cx", String(plot.x(point.x))); circle.setAttribute("cy", String(plot.y(point.y))); circle.setAttribute("r", "4");
+          svg.append(circle);
+        }
+      }
+      wrap.append(svg);
+      return wrap;
+    }
+    function normalizedPlotPoints(points) {
+      return (points ?? [])
+        .map((point) => Array.isArray(point) ? { x: Number(point[0]), y: Number(point[1]) } : { x: Number(point?.x), y: Number(point?.y) })
+        .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+    }
+    function plotScale(points) {
+      let minX = Math.min(...points.map((point) => point.x));
+      let maxX = Math.max(...points.map((point) => point.x));
+      let minY = Math.min(...points.map((point) => point.y));
+      let maxY = Math.max(...points.map((point) => point.y));
+      if (minX === maxX) { minX -= 1; maxX += 1; }
+      if (minY === maxY) { minY -= 1; maxY += 1; }
+      const xTicks = axisTicks(minX, maxX);
+      const yTicks = axisTicks(minY, maxY);
+      const padX = (maxX - minX) * 0.05;
+      const padY = (maxY - minY) * 0.08;
+      minX -= padX; maxX += padX; minY -= padY; maxY += padY;
+      const left = 58, top = 16, width = 548, height = 210;
+      const xScale = (value) => left + ((value - minX) / (maxX - minX)) * width;
+      const yScale = (value) => top + height - ((value - minY) / (maxY - minY)) * height;
+      return {
+        left, top, width, height,
+        xTicks, yTicks,
+        xAxisY: clamp(yScale(0), top, top + height),
+        yAxisX: clamp(xScale(0), left, left + width),
+        x: xScale,
+        y: yScale
+      };
+    }
+    function axisTicks(min, max) {
+      const unit = axisUnit(min, max);
+      const crossesZero = min <= 0 && max >= 0;
+      const start = crossesZero ? Math.ceil(min / unit) * unit : min > 0 ? min : max;
+      const end = crossesZero ? Math.floor(max / unit) * unit : min > 0 ? max : min;
+      const step = crossesZero || min > 0 ? unit : -unit;
+      const ticks = [];
+      for (let value = start; step > 0 ? value <= end : value >= end; value += step) ticks.push(normalizeTick(value));
+      return ticks.sort((a, b) => a - b);
+    }
+    function axisUnit(min, max) {
+      return Math.max(unitForMagnitude(Math.max(0, max)), unitForMagnitude(Math.max(0, -min)));
+    }
+    function unitForMagnitude(value) {
+      if (value < 10) return 1;
+      return 10 ** Math.floor(Math.log10(value));
+    }
+    function formatTick(value) {
+      return String(normalizeTick(value));
+    }
+    function normalizeTick(value) {
+      const normalized = Object.is(value, -0) ? 0 : value;
+      return Math.abs(normalized) < 1e-10 ? 0 : Number(normalized.toPrecision(12));
+    }
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+    function addPlotAxes(svg, plot) {
+      for (let i = 0; i <= 4; i++) {
+        const y = plot.top + (plot.height / 4) * i;
+        const grid = svgEl("line");
+        grid.setAttribute("class", "plot-grid");
+        grid.setAttribute("x1", String(plot.left)); grid.setAttribute("x2", String(plot.left + plot.width));
+        grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y));
+        svg.append(grid);
+      }
+      for (const tick of plot.xTicks) {
+        const group = svgEl("g");
+        const mark = svgEl("line");
+        mark.setAttribute("class", "plot-tick");
+        mark.setAttribute("x1", String(plot.x(tick))); mark.setAttribute("x2", String(plot.x(tick)));
+        mark.setAttribute("y1", String(plot.xAxisY - 4)); mark.setAttribute("y2", String(plot.xAxisY + 4));
+        const label = svgEl("text");
+        label.setAttribute("class", "plot-label");
+        label.setAttribute("x", String(plot.x(tick)));
+        label.setAttribute("y", String(Math.min(plot.xAxisY + 18, plot.top + plot.height + 24)));
+        label.setAttribute("text-anchor", "middle");
+        label.textContent = formatTick(tick);
+        group.append(mark, label);
+        svg.append(group);
+      }
+      for (const tick of plot.yTicks) {
+        const group = svgEl("g");
+        const mark = svgEl("line");
+        mark.setAttribute("class", "plot-tick");
+        mark.setAttribute("x1", String(plot.yAxisX - 4)); mark.setAttribute("x2", String(plot.yAxisX + 4));
+        mark.setAttribute("y1", String(plot.y(tick))); mark.setAttribute("y2", String(plot.y(tick)));
+        const label = svgEl("text");
+        label.setAttribute("class", "plot-label");
+        label.setAttribute("x", String(Math.max(plot.yAxisX - 8, 8)));
+        label.setAttribute("y", String(plot.y(tick) + 4));
+        label.setAttribute("text-anchor", "end");
+        label.textContent = formatTick(tick);
+        group.append(mark, label);
+        svg.append(group);
+      }
+      const xAxis = svgEl("line");
+      xAxis.setAttribute("class", "plot-axis");
+      xAxis.setAttribute("x1", String(plot.left)); xAxis.setAttribute("x2", String(plot.left + plot.width));
+      xAxis.setAttribute("y1", String(plot.xAxisY)); xAxis.setAttribute("y2", String(plot.xAxisY));
+      svg.append(xAxis);
+      const yAxis = svgEl("line");
+      yAxis.setAttribute("class", "plot-axis");
+      yAxis.setAttribute("x1", String(plot.yAxisX)); yAxis.setAttribute("x2", String(plot.yAxisX));
+      yAxis.setAttribute("y1", String(plot.top)); yAxis.setAttribute("y2", String(plot.top + plot.height));
+      svg.append(yAxis);
+    }
+    function svgEl(tag) {
+      return document.createElementNS("http://www.w3.org/2000/svg", tag);
     }
     function renderForm(widget) {
       const form = document.createElement("form");
@@ -385,10 +553,23 @@ export function agentUIAppHtml(): string {
       const wrap = el("div", "stack");
       for (const file of widget.files ?? []) {
         const details = document.createElement("details"); details.open = true;
-        details.append(el("summary", "", file.path), el("pre", "", file.patch ?? ["--- before", file.oldText ?? "", "+++ after", file.newText ?? ""].join("\\n")));
+        details.append(el("summary", "", file.path), renderDiffLines(file.patch ?? ["--- before", file.oldText ?? "", "+++ after", file.newText ?? ""].join("\\n")));
         wrap.append(details);
       }
       return wrap;
+    }
+    function renderDiffLines(text) {
+      const pre = el("pre", "diff-lines");
+      for (const line of String(text).split("\\n")) {
+        const row = el("div", diffLineClass(line), line.length > 0 ? line : " ");
+        pre.append(row);
+      }
+      return pre;
+    }
+    function diffLineClass(line) {
+      if (line.startsWith("+") && !line.startsWith("+++")) return "diff-line diff-line-added";
+      if (line.startsWith("-") && !line.startsWith("---")) return "diff-line diff-line-removed";
+      return "diff-line";
     }
     function renderConfirmation(widget) {
       const wrap = el("div", "stack");

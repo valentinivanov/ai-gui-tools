@@ -78,6 +78,66 @@ describe("AgentUI core", () => {
     }
   });
 
+  it("creates a plot view for 2D points", async () => {
+    const ui = createAgentUI();
+
+    await ui.handleToolCall("ui.plot", {
+      viewId: "latency",
+      title: "Latency",
+      mode: "lines",
+      points: [
+        { x: 0, y: 12 },
+        { x: 1, y: 18 },
+        { x: 2, y: 14 }
+      ]
+    });
+
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("plot");
+    if (widget?.type === "plot") {
+      expect(widget.mode).toBe("lines");
+      expect(widget.points).toEqual([
+        { x: 0, y: 12 },
+        { x: 1, y: 18 },
+        { x: 2, y: 14 }
+      ]);
+    }
+  });
+
+  it("computes a unified diff when patch is omitted and diff is available", async () => {
+    const ui = createAgentUI();
+
+    await ui.handleToolCall("ui.diff", {
+      viewId: "review",
+      title: "Review",
+      files: [{ path: "app.ts", oldText: "const port = 3000;\n", newText: "const port = 8080;\n" }]
+    });
+
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("diff");
+    if (widget?.type === "diff") {
+      expect(widget.files[0]?.patch).toContain("-const port = 3000;");
+      expect(widget.files[0]?.patch).toContain("+const port = 8080;");
+    }
+  });
+
+  it("keeps caller-provided diff patches unchanged", async () => {
+    const ui = createAgentUI();
+    const patch = "@@ custom patch @@";
+
+    await ui.handleToolCall("ui.diff", {
+      viewId: "review",
+      title: "Review",
+      files: [{ path: "app.ts", oldText: "before", newText: "after", patch }]
+    });
+
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("diff");
+    if (widget?.type === "diff") {
+      expect(widget.files[0]?.patch).toBe(patch);
+    }
+  });
+
   it("accepts tableName as an alias for table name", async () => {
     const ui = createAgentUI();
 

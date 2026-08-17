@@ -10,6 +10,8 @@ When the user asks to configure something, collect related values with a form.
 
 When the user asks to compare options, use a comparison or table UI.
 
+When the user asks to visualize numeric data, trends, samples, or measurements, use a plot UI.
+
 When the user asks to review proposed changes, use a diff or review UI.
 
 When an action has consequences, ask for confirmation with a UI confirmation.

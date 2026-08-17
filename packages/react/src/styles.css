@@ -233,7 +233,8 @@
   background: #f7f9fb;
 }
 
-.agentui-diff pre {
+.agentui-diff pre,
+.agentui-diff-lines {
   margin: 0;
   overflow-x: auto;
   padding: 12px;
@@ -241,6 +242,78 @@
   background: #fbfcfd;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.agentui-diff-line {
+  white-space: pre;
+}
+
+.agentui-diff-line.is-added {
+  color: #14532d;
+  background: #edf8ef;
+}
+
+.agentui-diff-line.is-removed {
+  color: #7f1d1d;
+  background: #fff1f1;
+}
+
+.agentui-plot {
+  display: grid;
+  gap: 8px;
+}
+
+.agentui-plot h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.agentui-plot svg {
+  width: 100%;
+  min-height: 220px;
+  border: 1px solid #d7dce2;
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+
+.agentui-plot-axis {
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+.agentui-plot-tick {
+  stroke: #64748b;
+  stroke-width: 1;
+}
+
+.agentui-plot-label {
+  fill: #475569;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agentui-plot-grid {
+  stroke: #e2e8f0;
+  stroke-width: 1;
+}
+
+.agentui-plot-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 2;
+}
+
+.agentui-plot-bar {
+  stroke: #2563eb;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0.72;
+}
+
+.agentui-plot-point {
+  fill: #2563eb;
+  stroke: #ffffff;
+  stroke-width: 1.5;
 }
 
 .agentui-confirm {

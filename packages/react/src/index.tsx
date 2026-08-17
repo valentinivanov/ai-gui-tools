@@ -90,6 +90,8 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
       );
     case "form":
       return <FormWidget ui={ui} widget={widget} />;
+    case "plot":
+      return <PlotWidgetView widget={widget} />;
     case "separator":
       return <div className="agentui-separator" aria-hidden="true" />;
     case "container":
@@ -179,7 +181,7 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
           {widget.files.map((file) => (
             <details key={file.path} open>
               <summary>{file.path}</summary>
-              {file.patch ? <pre>{file.patch}</pre> : <pre>{buildInlineDiff(file.oldText, file.newText)}</pre>}
+              <DiffLines text={file.patch ?? buildInlineDiff(file.oldText, file.newText)} />
             </details>
           ))}
         </div>
@@ -225,6 +227,174 @@ function tableDisplayName(widget: Extract<Widget, { type: "table" }>): string {
     (widget as typeof widget & { title?: string | undefined }).title ??
     (widget as typeof widget & { caption?: string | undefined }).caption;
   return typeof value === "string" ? value : "";
+}
+
+function DiffLines({ text }: { text: string }): React.ReactElement {
+  return (
+    <pre className="agentui-diff-lines">
+      {text.split("\n").map((line, index) => (
+        <div key={index} className={`agentui-diff-line ${diffLineClass(line)}`}>
+          {line.length > 0 ? line : " "}
+        </div>
+      ))}
+    </pre>
+  );
+}
+
+function diffLineClass(line: string): string {
+  if (line.startsWith("+") && !line.startsWith("+++")) return "is-added";
+  if (line.startsWith("-") && !line.startsWith("---")) return "is-removed";
+  return "";
+}
+
+function PlotWidgetView({ widget }: { widget: Extract<Widget, { type: "plot" }> }): React.ReactElement {
+  const points = normalizedPlotPoints(widget.points);
+  const plot = points.length > 0 ? plotScale(points) : undefined;
+  return (
+    <div className="agentui-plot">
+      {widget.title ? <h3>{widget.title}</h3> : null}
+      <svg viewBox="0 0 640 280" role="img" aria-label={widget.title ?? "Plot"}>
+        {points.length === 0 || !plot ? (
+          <text x="320" y="140" textAnchor="middle" fill="#64748b">
+            No data
+          </text>
+        ) : (
+          <>
+            <PlotAxes plot={plot} />
+            {widget.mode === "lines" ? <polyline className="agentui-plot-line" points={points.map((point) => `${plot.x(point.x)},${plot.y(point.y)}`).join(" ")} /> : null}
+            {widget.mode === "bars"
+              ? points.map((point, index) => (
+                  <line key={index} className="agentui-plot-bar" x1={plot.x(point.x)} x2={plot.x(point.x)} y1={plot.xAxisY} y2={plot.y(point.y)} />
+                ))
+              : points.map((point, index) => <circle key={index} className="agentui-plot-point" cx={plot.x(point.x)} cy={plot.y(point.y)} r="4" />)}
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function PlotAxes({ plot }: { plot: PlotScale }): React.ReactElement {
+  return (
+    <>
+      {Array.from({ length: 5 }, (_, index) => {
+        const y = plot.top + (plot.height / 4) * index;
+        return <line key={index} className="agentui-plot-grid" x1={plot.left} x2={plot.left + plot.width} y1={y} y2={y} />;
+      })}
+      {plot.xTicks.map((tick) => (
+        <g key={`x-${tick}`}>
+          <line className="agentui-plot-tick" x1={plot.x(tick)} x2={plot.x(tick)} y1={plot.xAxisY - 4} y2={plot.xAxisY + 4} />
+          <text className="agentui-plot-label" x={plot.x(tick)} y={Math.min(plot.xAxisY + 18, plot.top + plot.height + 24)} textAnchor="middle">
+            {formatTick(tick)}
+          </text>
+        </g>
+      ))}
+      {plot.yTicks.map((tick) => (
+        <g key={`y-${tick}`}>
+          <line className="agentui-plot-tick" x1={plot.yAxisX - 4} x2={plot.yAxisX + 4} y1={plot.y(tick)} y2={plot.y(tick)} />
+          <text className="agentui-plot-label" x={Math.max(plot.yAxisX - 8, 8)} y={plot.y(tick) + 4} textAnchor="end">
+            {formatTick(tick)}
+          </text>
+        </g>
+      ))}
+      <line className="agentui-plot-axis" x1={plot.left} x2={plot.left + plot.width} y1={plot.xAxisY} y2={plot.xAxisY} />
+      <line className="agentui-plot-axis" x1={plot.yAxisX} x2={plot.yAxisX} y1={plot.top} y2={plot.top + plot.height} />
+    </>
+  );
+}
+
+function normalizedPlotPoints(points: Array<{ x: number; y: number } | [number, number]>): Array<{ x: number; y: number }> {
+  return points
+    .map((point) => (Array.isArray(point) ? { x: Number(point[0]), y: Number(point[1]) } : { x: Number(point.x), y: Number(point.y) }))
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+}
+
+function plotScale(points: Array<{ x: number; y: number }>): PlotScale {
+  let minX = Math.min(...points.map((point) => point.x));
+  let maxX = Math.max(...points.map((point) => point.x));
+  let minY = Math.min(...points.map((point) => point.y));
+  let maxY = Math.max(...points.map((point) => point.y));
+  if (minX === maxX) {
+    minX -= 1;
+    maxX += 1;
+  }
+  if (minY === maxY) {
+    minY -= 1;
+    maxY += 1;
+  }
+  const xTicks = axisTicks(minX, maxX);
+  const yTicks = axisTicks(minY, maxY);
+  const padX = (maxX - minX) * 0.05;
+  const padY = (maxY - minY) * 0.08;
+  minX -= padX;
+  maxX += padX;
+  minY -= padY;
+  maxY += padY;
+  const left = 58;
+  const top = 16;
+  const width = 548;
+  const height = 210;
+  const xScale = (value: number) => left + ((value - minX) / (maxX - minX)) * width;
+  const yScale = (value: number) => top + height - ((value - minY) / (maxY - minY)) * height;
+  return {
+    left,
+    top,
+    width,
+    height,
+    xTicks,
+    yTicks,
+    xAxisY: clamp(yScale(0), top, top + height),
+    yAxisX: clamp(xScale(0), left, left + width),
+    x: xScale,
+    y: yScale
+  };
+}
+
+function axisTicks(min: number, max: number): number[] {
+  const unit = axisUnit(min, max);
+  const start = min <= 0 && max >= 0 ? Math.ceil(min / unit) * unit : min > 0 ? min : max;
+  const end = min <= 0 && max >= 0 ? Math.floor(max / unit) * unit : min > 0 ? max : min;
+  const step = min <= 0 && max >= 0 || min > 0 ? unit : -unit;
+  const ticks: number[] = [];
+  for (let value = start; step > 0 ? value <= end : value >= end; value += step) {
+    ticks.push(normalizeTick(value));
+  }
+  return ticks.sort((a, b) => a - b);
+}
+
+function axisUnit(min: number, max: number): number {
+  return Math.max(unitForMagnitude(Math.max(0, max)), unitForMagnitude(Math.max(0, -min)));
+}
+
+function unitForMagnitude(value: number): number {
+  if (value < 10) return 1;
+  return 10 ** Math.floor(Math.log10(value));
+}
+
+function formatTick(value: number): string {
+  return String(normalizeTick(value));
+}
+
+function normalizeTick(value: number): number {
+  const normalized = Object.is(value, -0) ? 0 : value;
+  return Math.abs(normalized) < 1e-10 ? 0 : Number(normalized.toPrecision(12));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+interface PlotScale {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  xTicks: number[];
+  yTicks: number[];
+  xAxisY: number;
+  yAxisX: number;
+  x(value: number): number;
+  y(value: number): number;
 }
 
 function FormWidget({ ui, widget }: { ui: AgentUICore; widget: Extract<Widget, { type: "form" }> }): React.ReactElement {

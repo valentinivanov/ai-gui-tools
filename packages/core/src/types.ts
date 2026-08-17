@@ -7,6 +7,7 @@ export type AgentUICapability =
   | "confirm"
   | "progress"
   | "container"
+  | "plot"
   | "view.replace";
 
 export interface AgentUIOptions {
@@ -37,6 +38,7 @@ export type Widget =
   | TreeWidget
   | TabsWidget
   | ProgressWidget
+  | PlotWidget
   | DiffWidget
   | ConfirmationWidget;
 
@@ -176,6 +178,19 @@ export interface ProgressWidget {
   value: number;
   max?: number | undefined;
   status?: string | undefined;
+}
+
+export interface PlotPoint {
+  x: number;
+  y: number;
+}
+
+export interface PlotWidget {
+  type: "plot";
+  id?: string | undefined;
+  title?: string | undefined;
+  mode: "points" | "lines" | "bars";
+  points: PlotPoint[];
 }
 
 export interface DiffFile {

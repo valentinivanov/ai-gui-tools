@@ -3,6 +3,8 @@ import type {
   ConfirmationWidget,
   FormField,
   ProgressWidget,
+  PlotPoint,
+  PlotWidget,
   SelectOption,
   TableColumn,
   ToolDefinition,
@@ -19,6 +21,7 @@ export const defaultCapabilities: AgentUICapability[] = [
   "confirm",
   "progress",
   "container",
+  "plot",
   "view.replace"
 ];
 
@@ -35,6 +38,14 @@ const optionSchema = objectSchema(
     value: { type: "string" }
   },
   ["label", "value"]
+);
+
+const pointSchema = objectSchema(
+  {
+    x: { type: "number" },
+    y: { type: "number" }
+  },
+  ["x", "y"]
 );
 
 const fieldSchema = {
@@ -191,6 +202,21 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
         ["viewId", "title", "id", "value"]
       )
     },
+    plot: {
+      name: "ui.plot",
+      description:
+        "Use to display numeric 2D data on an auto-ranged graph. Provide points as [{ x: number, y: number }]. mode='points' draws circles, mode='lines' connects consecutive points, and mode='bars' draws vertical bars from the X axis (y=0) to each point.",
+      parameters: objectSchema(
+        {
+          viewId: { type: "string" },
+          title: { type: "string" },
+          id: { type: "string" },
+          mode: { enum: ["points", "lines", "bars"] },
+          points: { type: "array", items: pointSchema }
+        },
+        ["viewId", "title", "points"]
+      )
+    },
     container: {
       name: "ui.container",
       description:
@@ -203,7 +229,7 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
             type: "array",
             items: { type: "object" },
             description:
-              "Renderer-independent widget objects to render together. Examples include {type:'table', name:'Entered values', columns:[...], rows:[...]}, {type:'separator'} for a one-line-tall divider/spacer between controls, {type:'markdown', markdown:'...'}, {type:'form', id:'...', fields:[...]}, or nested {type:'container', children:[...]}. For table widgets inside a container, set table.name when the table needs a visible caption row."
+              "Renderer-independent widget objects to render together. Examples include {type:'table', name:'Entered values', columns:[...], rows:[...]}, {type:'plot', title:'Latency', mode:'lines', points:[{x:1,y:20}]}, {type:'separator'} for a one-line-tall divider/spacer between controls, {type:'markdown', markdown:'...'}, {type:'form', id:'...', fields:[...]}, or nested {type:'container', children:[...]}. For table widgets inside a container, set table.name when the table needs a visible caption row."
           }
         },
         ["viewId", "title", "children"]
@@ -280,6 +306,12 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
         id: stringValue(data.viewId, "viewId"),
         title: optionalString(data.title),
         children: [progressWidget(data)]
+      });
+    case "ui.plot":
+      return replaceView({
+        id: stringValue(data.viewId, "viewId"),
+        title: optionalString(data.title),
+        children: [plotWidget(data)]
       });
     case "ui.container":
       return replaceView({
@@ -382,6 +414,28 @@ function progressWidget(data: Record<string, unknown>): ProgressWidget {
     max: typeof data.max === "number" ? data.max : 100,
     status: optionalString(data.status)
   };
+}
+
+function plotWidget(data: Record<string, unknown>): PlotWidget {
+  return {
+    type: "plot",
+    id: optionalString(data.id) ?? `${stringValue(data.viewId, "viewId")}:plot`,
+    title: optionalString(data.title),
+    mode: plotMode(data.mode),
+    points: arrayValue(data.points, "points").map(pointValue)
+  };
+}
+
+function pointValue(value: unknown): PlotPoint {
+  const data = asRecord(value);
+  return {
+    x: numberValue(data.x, "point.x"),
+    y: numberValue(data.y, "point.y")
+  };
+}
+
+function plotMode(value: unknown): PlotWidget["mode"] {
+  return value === "lines" || value === "bars" || value === "points" ? value : "points";
 }
 
 function replaceView(view: View): { type: "replace_view"; view: View } {

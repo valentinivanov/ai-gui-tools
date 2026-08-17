@@ -31,7 +31,9 @@ describe("@agentui/mcp", () => {
     const result = registerAgentUITools(server, { ui });
 
     expect(result.mappings).toContainEqual({ canonicalName: "ui.form", transportName: "ui_form" });
+    expect(result.mappings).toContainEqual({ canonicalName: "ui.plot", transportName: "ui_plot" });
     expect(server.tools.has("ui_form")).toBe(true);
+    expect(server.tools.has("ui_plot")).toBe(true);
     expect(server.tools.get("ui_form")?.config).toMatchObject({
       _meta: { ui: { resourceUri: defaultAgentUIResourceUri } }
     });

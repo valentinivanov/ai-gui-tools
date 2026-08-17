@@ -1,4 +1,5 @@
 import { agentUIInstructions } from "./instructions.js";
+import { populateComputedDiffs } from "./diff.js";
 import { commandFromTool, defaultCapabilities, toolDefinitions } from "./tools.js";
 import type {
   AgentUICapability,
@@ -81,7 +82,7 @@ class AgentUIStore implements AgentUI {
 
   async handleToolCall(name: string, args: unknown): Promise<ToolResult> {
     try {
-      const command = commandFromTool(name, args);
+      const command = await populateComputedDiffs(commandFromTool(name, args));
       this.dispatch(command);
       return {
         ok: true,

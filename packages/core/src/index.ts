@@ -19,6 +19,8 @@ export type {
   FormWidget,
   InputWidget,
   MarkdownWidget,
+  PlotPoint,
+  PlotWidget,
   ProgressWidget,
   SelectOption,
   SelectWidget,
