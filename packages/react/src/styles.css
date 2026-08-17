@@ -113,6 +113,29 @@
   gap: 8px;
 }
 
+.agentui-container {
+  display: grid;
+  gap: 12px;
+}
+
+.agentui-container h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.agentui-separator {
+  display: flex;
+  align-items: center;
+  min-height: 1lh;
+}
+
+.agentui-separator::before {
+  content: "";
+  display: block;
+  width: 100%;
+  border-top: 1px solid #d7dce2;
+}
+
 .agentui-table-wrap {
   overflow-x: auto;
 }
@@ -135,6 +158,13 @@
   color: #3b4652;
   background: #f7f9fb;
   font-weight: 700;
+}
+
+.agentui-table th.agentui-table-name {
+  color: #1f2937;
+  background: #e9eef4;
+  font-weight: 750;
+  text-align: left;
 }
 
 .agentui-tree,

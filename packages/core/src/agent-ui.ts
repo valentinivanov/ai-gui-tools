@@ -147,6 +147,9 @@ function collectValues(widgets: Widget[]): Map<string, unknown> {
         if (field.type === "select") values.set(field.id, field.value);
       }
     }
+    if (widget.type === "container") {
+      for (const [key, value] of collectValues(widget.children)) values.set(key, value);
+    }
   }
   return values;
 }
@@ -188,20 +191,55 @@ function restoreWidgetValue(widget: Widget, values: Map<string, unknown>): Widge
       })
     };
   }
+  if (widget.type === "container") {
+    return {
+      ...widget,
+      children: widget.children.map((child) => restoreWidgetValue(child, values))
+    };
+  }
   return widget;
 }
 
 function applyEventToState(state: AgentUIState, event: UIEvent): AgentUIState {
+  const completedViewId = completedViewIdForEvent(state, event);
+
   if (event.type === "click") {
-    return state;
+    return completedViewId ? { views: state.views.filter((view) => view.id !== completedViewId) } : state;
   }
 
-  return {
+  const nextState = {
     views: state.views.map((view) => ({
       ...view,
       children: view.children.map((widget) => applyEventToWidget(widget, event))
     }))
   };
+
+  return completedViewId ? { views: nextState.views.filter((view) => view.id !== completedViewId) } : nextState;
+}
+
+function completedViewIdForEvent(state: AgentUIState, event: UIEvent): string | undefined {
+  if (event.type === "submit") {
+    return state.views.find((view) => view.children.some((widget) => widgetMatchesSubmit(widget, event.id)))?.id;
+  }
+
+  if (event.type === "click" && (event.id.endsWith(":cancel") || event.id.endsWith(":confirm"))) {
+    const widgetId = event.id.replace(/:(cancel|confirm)$/, "");
+    return state.views.find((view) => view.children.some((widget) => widgetMatchesAction(widget, widgetId)))?.id;
+  }
+
+  return undefined;
+}
+
+function widgetMatchesSubmit(widget: Widget, id: string): boolean {
+  if (widget.type === "form") return widget.id === id;
+  if (widget.type === "tabs") return widget.tabs.some((tab) => tab.children.some((child) => widgetMatchesSubmit(child, id)));
+  return false;
+}
+
+function widgetMatchesAction(widget: Widget, id: string): boolean {
+  if (widget.type === "form" || widget.type === "confirmation" || widget.type === "button") return widget.id === id;
+  if (widget.type === "tabs") return widget.tabs.some((tab) => tab.children.some((child) => widgetMatchesAction(child, id)));
+  return false;
 }
 
 function applyEventToWidget(widget: Widget, event: Extract<UIEvent, { type: "change" | "submit" }>): Widget {
@@ -236,6 +274,12 @@ function applyEventToWidget(widget: Widget, event: Extract<UIEvent, { type: "cha
         ...tab,
         children: tab.children.map((child) => applyEventToWidget(child, event))
       }))
+    };
+  }
+  if (widget.type === "container") {
+    return {
+      ...widget,
+      children: widget.children.map((child) => applyEventToWidget(child, event))
     };
   }
 

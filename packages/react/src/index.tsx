@@ -90,11 +90,30 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
       );
     case "form":
       return <FormWidget ui={ui} widget={widget} />;
+    case "separator":
+      return <div className="agentui-separator" aria-hidden="true" />;
+    case "container":
+      return (
+        <div className="agentui-container">
+          {widget.title ? <h3>{widget.title}</h3> : null}
+          {widget.children.map((child, index) => (
+            <WidgetRenderer key={widgetKey(child, index)} ui={ui} widget={child} />
+          ))}
+        </div>
+      );
     case "table":
+      const tableName = tableDisplayName(widget);
       return (
         <div className="agentui-table-wrap">
           <table className="agentui-table">
             <thead>
+              {tableName ? (
+                <tr>
+                  <th className="agentui-table-name" colSpan={Math.max(widget.columns.length, 1)}>
+                    {tableName}
+                  </th>
+                </tr>
+              ) : null}
               <tr>
                 {widget.columns.map((column) => (
                   <th key={column.key}>{column.label}</th>
@@ -104,8 +123,8 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
             <tbody>
               {widget.rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  {widget.columns.map((column) => (
-                    <td key={column.key}>{String(row[column.key] ?? "")}</td>
+                  {widget.columns.map((column, columnIndex) => (
+                    <td key={column.key}>{formatCellValue(cellValue(row, column, columnIndex))}</td>
                   ))}
                 </tr>
               ))}
@@ -181,6 +200,31 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
         </div>
       );
   }
+}
+
+function cellValue(row: Record<string, string | number | boolean | null | undefined>, column: { key: string; label: string }, columnIndex: number): unknown {
+  if (Array.isArray(row)) return row[columnIndex];
+  if (!row || typeof row !== "object") return columnIndex === 0 ? row : undefined;
+  if (row[column.key] !== undefined) return row[column.key];
+  if (row[column.label] !== undefined) return row[column.label];
+  const match = Object.keys(row).find((key) => key.toLowerCase() === column.key.toLowerCase() || key.toLowerCase() === column.label.toLowerCase());
+  if (match) return row[match];
+  return Object.values(row)[columnIndex];
+}
+
+function formatCellValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function tableDisplayName(widget: Extract<Widget, { type: "table" }>): string {
+  const value =
+    widget.name ??
+    (widget as typeof widget & { tableName?: string | undefined }).tableName ??
+    (widget as typeof widget & { title?: string | undefined }).title ??
+    (widget as typeof widget & { caption?: string | undefined }).caption;
+  return typeof value === "string" ? value : "";
 }
 
 function FormWidget({ ui, widget }: { ui: AgentUICore; widget: Extract<Widget, { type: "form" }> }): React.ReactElement {

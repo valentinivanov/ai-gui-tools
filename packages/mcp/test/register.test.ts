@@ -68,6 +68,94 @@ describe("@agentui/mcp", () => {
     expect(output.content[0]).toMatchObject({ type: "text" });
   });
 
+  it("keeps only the active view by default across model UI calls", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    const result = registerAgentUITools(server, { ui });
+
+    await invokeAgentUITool(ui, result.mappings, "ui_table", {
+      viewId: "summary",
+      title: "Summary",
+      columns: [{ key: "name", label: "Name" }],
+      rows: [{ name: "web" }]
+    });
+    await invokeAgentUITool(ui, result.mappings, "ui_form", {
+      viewId: "deployment",
+      title: "Deployment",
+      fields: [{ type: "input", id: "service", label: "Service" }]
+    });
+
+    expect(ui.getState().views.map((view) => view.id)).toEqual(["deployment"]);
+    expect(ui.getState().views[0]?.children[0]?.type).toBe("form");
+  });
+
+  it("keeps only the last view for repeated table calls by default", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    const result = registerAgentUITools(server, { ui });
+
+    for (const viewId of ["intact", "changed", "entered"]) {
+      await invokeAgentUITool(ui, result.mappings, "ui_table", {
+        viewId,
+        title: viewId,
+        columns: [{ key: "name", label: "Name" }],
+        rows: [{ name: viewId }]
+      });
+    }
+
+    expect(ui.getState().views.map((view) => view.id)).toEqual(["entered"]);
+    expect(ui.getState().views[0]?.children[0]?.type).toBe("table");
+  });
+
+  it("renders multiple UI elements through an explicit container", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    const result = registerAgentUITools(server, { ui });
+
+    await invokeAgentUITool(ui, result.mappings, "ui_container", {
+      viewId: "form-values",
+      title: "Form values",
+      children: ["intact", "changed", "entered"].map((name) => ({
+        type: "container",
+        title: name,
+        children: [
+          {
+            type: "table",
+            columns: [{ key: "name", label: "Name" }],
+            rows: [{ name }]
+          }
+        ]
+      }))
+    });
+
+    expect(ui.getState().views.map((view) => view.id)).toEqual(["form-values"]);
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("container");
+    if (widget?.type === "container") {
+      expect(widget.children).toHaveLength(3);
+    }
+  });
+
+  it("can preserve multiple views when configured", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    registerAgentUITools(server, { ui, replaceExistingViews: false });
+
+    await server.tools.get("ui_table")!.handler({
+      viewId: "summary",
+      title: "Summary",
+      columns: [{ key: "name", label: "Name" }],
+      rows: [{ name: "web" }]
+    });
+    await server.tools.get("ui_form")!.handler({
+      viewId: "deployment",
+      title: "Deployment",
+      fields: [{ type: "input", id: "service", label: "Service" }]
+    });
+
+    expect(ui.getState().views.map((view) => view.id)).toEqual(["summary", "deployment"]);
+  });
+
   it("honors capability restrictions", () => {
     const ui = createAgentUI({ capabilities: ["form", "confirm"] });
     const server = createFakeServer();
@@ -89,6 +177,84 @@ describe("@agentui/mcp", () => {
 
     expect(output).toMatchObject({
       structuredContent: { ok: true, eventPolicy: "local" }
+    });
+  });
+
+  it("exposes current app-only state with a revision", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    registerAgentUITools(server, { ui });
+
+    await server.tools.get("ui_form")!.handler({
+      viewId: "project",
+      title: "Project",
+      fields: [{ type: "input", id: "name", label: "Name" }]
+    });
+    const output = await server.tools.get("ui_state")!.handler({});
+
+    expect(output).toMatchObject({
+      structuredContent: {
+        ok: true,
+        agentuiRevision: 1,
+        agentuiUiSequence: 1,
+        agentuiContextSequence: 1,
+        state: { views: [{ id: "project" }] }
+      }
+    });
+  });
+
+  it("increments the state revision for UI events", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    registerAgentUITools(server, { ui });
+
+    await server.tools.get("ui_form")!.handler({
+      viewId: "project",
+      title: "Project",
+      fields: [{ type: "input", id: "name", label: "Name" }]
+    });
+    await server.tools.get("ui_event")!.handler({ event: { type: "submit", id: "project:form", values: { name: "demo" } }, uiSequence: 1 });
+    const output = await server.tools.get("ui_state")!.handler({});
+
+    expect(output).toMatchObject({
+      structuredContent: {
+        ok: true,
+        agentuiRevision: 2,
+        agentuiUiSequence: 1,
+        agentuiContextSequence: 2,
+        agentuiCompletedEvents: {
+          "1": { type: "submit", id: "project:form", values: { name: "demo" } }
+        },
+        state: { views: [] }
+      }
+    });
+  });
+
+  it("keeps context sequence aligned to the newest model-rendered UI", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    registerAgentUITools(server, { ui });
+
+    await server.tools.get("ui_form")!.handler({
+      viewId: "first",
+      title: "First",
+      fields: []
+    });
+    await server.tools.get("ui_table")!.handler({
+      viewId: "second",
+      title: "Second",
+      columns: [{ key: "name", label: "Name" }],
+      rows: [{ name: "demo" }]
+    });
+    const output = await server.tools.get("ui_state")!.handler({});
+
+    expect(output).toMatchObject({
+      structuredContent: {
+        agentuiRevision: 2,
+        agentuiUiSequence: 2,
+        agentuiContextSequence: 2,
+        state: { views: [{ id: "second" }] }
+      }
     });
   });
 

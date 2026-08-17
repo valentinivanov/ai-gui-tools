@@ -6,6 +6,7 @@ export type AgentUICapability =
   | "diff"
   | "confirm"
   | "progress"
+  | "container"
   | "view.replace";
 
 export interface AgentUIOptions {
@@ -30,6 +31,8 @@ export type Widget =
   | SelectWidget
   | InputWidget
   | FormWidget
+  | ContainerWidget
+  | SeparatorWidget
   | TableWidget
   | TreeWidget
   | TabsWidget
@@ -118,6 +121,18 @@ export interface FormWidget {
   cancelLabel?: string | undefined;
 }
 
+export interface ContainerWidget {
+  type: "container";
+  id?: string | undefined;
+  title?: string | undefined;
+  children: Widget[];
+}
+
+export interface SeparatorWidget {
+  type: "separator";
+  id?: string | undefined;
+}
+
 export interface TableColumn {
   key: string;
   label: string;
@@ -126,6 +141,7 @@ export interface TableColumn {
 export interface TableWidget {
   type: "table";
   id?: string | undefined;
+  name?: string | undefined;
   columns: TableColumn[];
   rows: Record<string, string | number | boolean | null | undefined>[];
 }

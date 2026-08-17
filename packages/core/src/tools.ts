@@ -18,6 +18,7 @@ export const defaultCapabilities: AgentUICapability[] = [
   "diff",
   "confirm",
   "progress",
+  "container",
   "view.replace"
 ];
 
@@ -108,11 +109,14 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
     },
     table: {
       name: "ui.table",
-      description: "Use when structured records are easier to scan as rows and columns.",
+      description:
+        "Use when structured records are easier to scan as rows and columns. Each column.key must exactly match a property name in every row object. Use name for the table caption row displayed above column headers. For submitted form values, prefer rows like { field: 'environment', value: 'staging' } with columns [{ key: 'field', label: 'Field' }, { key: 'value', label: 'Value' }]. If multiple tables must be shown together, use ui.container with several table widgets instead of calling ui.table repeatedly; each nested table should set name.",
       parameters: objectSchema(
         {
           viewId: { type: "string" },
           title: { type: "string" },
+          name: { type: "string" },
+          tableName: { type: "string" },
           columns: {
             type: "array",
             items: objectSchema({ key: { type: "string" }, label: { type: "string" } }, ["key", "label"])
@@ -187,6 +191,24 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
         ["viewId", "title", "id", "value"]
       )
     },
+    container: {
+      name: "ui.container",
+      description:
+        "Use when multiple UI elements must be shown together in one response, such as three tables or a table plus explanatory text. Do not call ui.table repeatedly for a multi-table result; instead put all tables/widgets in this single container so the whole group is rendered as one current UI.",
+      parameters: objectSchema(
+        {
+          viewId: { type: "string" },
+          title: { type: "string" },
+          children: {
+            type: "array",
+            items: { type: "object" },
+            description:
+              "Renderer-independent widget objects to render together. Examples include {type:'table', name:'Entered values', columns:[...], rows:[...]}, {type:'separator'} for a one-line-tall divider/spacer between controls, {type:'markdown', markdown:'...'}, {type:'form', id:'...', fields:[...]}, or nested {type:'container', children:[...]}. For table widgets inside a container, set table.name when the table needs a visible caption row."
+          }
+        },
+        ["viewId", "title", "children"]
+      )
+    },
     "view.replace": {
       name: "ui.view.replace",
       description: "Replace a complete renderer-independent view. Use as an escape hatch for custom widget trees.",
@@ -227,6 +249,7 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
           {
             type: "table",
             id: `${stringValue(data.viewId, "viewId")}:table`,
+            name: optionalString(data.name) ?? optionalString(data.tableName),
             columns: arrayValue(data.columns, "columns") as TableColumn[],
             rows: arrayValue(data.rows, "rows") as Record<string, string | number | boolean | null | undefined>[]
           }
@@ -257,6 +280,19 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
         id: stringValue(data.viewId, "viewId"),
         title: optionalString(data.title),
         children: [progressWidget(data)]
+      });
+    case "ui.container":
+      return replaceView({
+        id: stringValue(data.viewId, "viewId"),
+        title: optionalString(data.title),
+        children: [
+          {
+            type: "container",
+            id: `${stringValue(data.viewId, "viewId")}:container`,
+            title: optionalString(data.title),
+            children: arrayValue(data.children, "children") as Widget[]
+          }
+        ]
       });
     case "ui.view.replace":
       return replaceView(data.view as View);
