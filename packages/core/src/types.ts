@@ -2,10 +2,8 @@ export type AgentUICapability =
   | "form"
   | "choice"
   | "table"
-  | "compare"
   | "diff"
   | "confirm"
-  | "progress"
   | "container"
   | "plot"
   | "view.replace";
@@ -37,7 +35,6 @@ export type Widget =
   | TableWidget
   | TreeWidget
   | TabsWidget
-  | ProgressWidget
   | PlotWidget
   | DiffWidget
   | ConfirmationWidget;
@@ -169,15 +166,6 @@ export interface TabsWidget {
     children: Widget[];
   }>;
   activeTabId?: string | undefined;
-}
-
-export interface ProgressWidget {
-  type: "progress";
-  id: string;
-  label?: string | undefined;
-  value: number;
-  max?: number | undefined;
-  status?: string | undefined;
 }
 
 export interface PlotPoint {

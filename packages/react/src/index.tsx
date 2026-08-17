@@ -167,14 +167,6 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
             ))}
         </div>
       );
-    case "progress":
-      return (
-        <div className="agentui-progress">
-          {widget.label ? <div className="agentui-progress-label">{widget.label}</div> : null}
-          <progress value={widget.value} max={widget.max ?? 100} />
-          {widget.status ? <div className="agentui-progress-status">{widget.status}</div> : null}
-        </div>
-      );
     case "diff":
       return (
         <div className="agentui-diff">

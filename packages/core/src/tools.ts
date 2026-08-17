@@ -2,7 +2,6 @@ import type {
   AgentUICapability,
   ConfirmationWidget,
   FormField,
-  ProgressWidget,
   PlotPoint,
   PlotWidget,
   SelectOption,
@@ -16,10 +15,8 @@ export const defaultCapabilities: AgentUICapability[] = [
   "form",
   "choice",
   "table",
-  "compare",
   "diff",
   "confirm",
-  "progress",
   "container",
   "plot",
   "view.replace"
@@ -137,20 +134,6 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
         ["viewId", "title", "columns", "rows"]
       )
     },
-    compare: {
-      name: "ui.compare",
-      description: "Use when the user needs to compare alternatives across multiple criteria.",
-      parameters: objectSchema(
-        {
-          viewId: { type: "string" },
-          title: { type: "string" },
-          items: { type: "array", items: { type: "string" } },
-          criteria: { type: "array", items: { type: "string" } },
-          rows: { type: "array", items: { type: "object" } }
-        },
-        ["viewId", "title", "items", "criteria"]
-      )
-    },
     diff: {
       name: "ui.diff",
       description: "Use when the user needs to review proposed text or code changes.",
@@ -184,22 +167,6 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
           cancelLabel: { type: "string" }
         },
         ["viewId", "id", "title"]
-      )
-    },
-    progress: {
-      name: "ui.progress",
-      description: "Use to show progress for a long-running task without calling the model for every frame.",
-      parameters: objectSchema(
-        {
-          viewId: { type: "string" },
-          title: { type: "string" },
-          id: { type: "string" },
-          label: { type: "string" },
-          value: { type: "number" },
-          max: { type: "number" },
-          status: { type: "string" }
-        },
-        ["viewId", "title", "id", "value"]
       )
     },
     plot: {
@@ -281,8 +248,6 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
           }
         ]
       });
-    case "ui.compare":
-      return compareCommand(data);
     case "ui.diff":
       return replaceView({
         id: stringValue(data.viewId, "viewId"),
@@ -300,12 +265,6 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
         id: stringValue(data.viewId, "viewId"),
         title: optionalString(data.title),
         children: [confirmationWidget(data)]
-      });
-    case "ui.progress":
-      return replaceView({
-        id: stringValue(data.viewId, "viewId"),
-        title: optionalString(data.title),
-        children: [progressWidget(data)]
       });
     case "ui.plot":
       return replaceView({
@@ -368,32 +327,6 @@ function choiceCommand(data: Record<string, unknown>): { type: "replace_view"; v
   });
 }
 
-function compareCommand(data: Record<string, unknown>): { type: "replace_view"; view: View } {
-  const items = arrayValue(data.items, "items") as string[];
-  const criteria = arrayValue(data.criteria, "criteria") as string[];
-  const columns = [
-    { key: "item", label: "Option" },
-    ...criteria.map((criterion) => ({ key: criterion, label: criterion }))
-  ];
-  const rows =
-    Array.isArray(data.rows) && data.rows.length > 0
-      ? (data.rows as Record<string, string | number | boolean | null | undefined>[])
-      : items.map((item) => ({ item }));
-
-  return replaceView({
-    id: stringValue(data.viewId, "viewId"),
-    title: optionalString(data.title),
-    children: [
-      {
-        type: "table",
-        id: `${stringValue(data.viewId, "viewId")}:compare`,
-        columns,
-        rows
-      }
-    ]
-  });
-}
-
 function confirmationWidget(data: Record<string, unknown>): ConfirmationWidget {
   return {
     type: "confirmation",
@@ -402,17 +335,6 @@ function confirmationWidget(data: Record<string, unknown>): ConfirmationWidget {
     message: optionalString(data.message),
     confirmLabel: optionalString(data.confirmLabel) ?? "Confirm",
     cancelLabel: optionalString(data.cancelLabel) ?? "Cancel"
-  };
-}
-
-function progressWidget(data: Record<string, unknown>): ProgressWidget {
-  return {
-    type: "progress",
-    id: stringValue(data.id, "id"),
-    label: optionalString(data.label),
-    value: numberValue(data.value, "value"),
-    max: typeof data.max === "number" ? data.max : 100,
-    status: optionalString(data.status)
   };
 }
 

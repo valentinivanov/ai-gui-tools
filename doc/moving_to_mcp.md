@@ -47,11 +47,11 @@ The long-term objective is that an MCP-capable model can discover tools such as:
 ```text
 ui.form
 ui.choice
-ui.compare
 ui.table
 ui.diff
 ui.confirm
-ui.progress
+ui.container
+ui.plot
 ui.view.replace
 ```
 
@@ -187,16 +187,6 @@ related inputs or configuration choices. Use this when collecting the
 inputs interactively is clearer or more efficient than asking a sequence
 of conversational questions. The user does not need to explicitly
 request a form.
-```
-
-Similarly:
-
-```text
-ui.compare
-
-Present an interactive comparison when the user needs to evaluate
-multiple alternatives across several criteria. Use this when interactive
-comparison would be easier to understand than a long textual explanation.
 ```
 
 And:
@@ -440,7 +430,7 @@ Compare PostgreSQL, SQLite and DynamoDB for an offline-first application.
 ```
 
 Expected behavior:
-model may use `ui.compare`.
+model may use `ui.table`.
 
 ```text
 Explain what dependency injection is.
@@ -568,7 +558,6 @@ createAgentUIMcpServer({
   capabilities: [
     "form",
     "table",
-    "compare",
     "confirm"
   ]
 });
@@ -807,7 +796,7 @@ The expected flow is conceptually:
 ```text
 model
   ↓
-ui.form / ui.compare / ui.view.replace
+ui.form / ui.table / ui.view.replace
   ↓
 AgentUI core state
   ↓
@@ -855,11 +844,11 @@ Canonical names in AgentUI core remain:
 ```text
 ui.form
 ui.choice
-ui.compare
 ui.table
 ui.diff
 ui.confirm
-ui.progress
+ui.container
+ui.plot
 ui.view.replace
 ```
 
@@ -878,7 +867,7 @@ The adapter should be able to map:
 
 ```text
 ui.form         <-> ui_form
-ui.compare      <-> ui_compare
+ui.plot         <-> ui_plot
 ui.view.replace <-> ui_view_replace
 ```
 
@@ -1181,4 +1170,3 @@ The secondary experiment is equally important:
 That means AgentUI should reduce conversational round trips rather than turn every checkbox and slider movement into another agent call.
 
 Implement these decisions directly. Only stop for clarification if the current MCP SDK/spec makes one of them technically impossible.
-

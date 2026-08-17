@@ -25,7 +25,7 @@ export function createAgentUIMcpServer(options: CreateAgentUIMcpServerOptions = 
     name: options.name ?? "agentui-mcp",
     version: options.version ?? "0.0.0"
   });
-  registerAgentUITools(server, {
+  const result = registerAgentUITools(server, {
     ui,
     ...(options.capabilities ? { capabilities: options.capabilities } : {}),
     ...(options.toolNameStyle ? { toolNameStyle: options.toolNameStyle } : {}),
@@ -33,6 +33,7 @@ export function createAgentUIMcpServer(options: CreateAgentUIMcpServerOptions = 
     ...(options.registerAppResource === undefined ? {} : { registerAppResource: options.registerAppResource }),
     ...(options.logger ? { logger: options.logger } : {})
   });
+  options.logger?.debug("registered tools", result.mappings.map((mapping) => mapping.transportName));
   return server;
 }
 

@@ -198,25 +198,6 @@
   font-weight: 700;
 }
 
-.agentui-progress {
-  display: grid;
-  gap: 6px;
-}
-
-.agentui-progress progress {
-  width: 100%;
-  height: 12px;
-}
-
-.agentui-progress-label {
-  font-weight: 700;
-}
-
-.agentui-progress-status {
-  color: #48515d;
-  font-size: 13px;
-}
-
 .agentui-diff details {
   border: 1px solid #d7dce2;
   border-radius: 6px;

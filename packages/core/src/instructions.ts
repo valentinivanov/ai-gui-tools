@@ -8,7 +8,7 @@ Prefer normal conversational text when interaction would add no value.
 
 When the user asks to configure something, collect related values with a form.
 
-When the user asks to compare options, use a comparison or table UI.
+When the user asks to compare options, use a table UI.
 
 When the user asks to visualize numeric data, trends, samples, or measurements, use a plot UI.
 

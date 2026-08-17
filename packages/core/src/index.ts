@@ -21,7 +21,6 @@ export type {
   MarkdownWidget,
   PlotPoint,
   PlotWidget,
-  ProgressWidget,
   SelectOption,
   SelectWidget,
   TableColumn,

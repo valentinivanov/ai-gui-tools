@@ -2,7 +2,7 @@ import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/e
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 export const defaultAgentUIResourceUri = "ui://agentui/view/v1";
-export const agentUIAppVersion = "20260817104538";
+export const agentUIAppVersion = "20260817115450";
 
 export function registerAgentUIAppResource(server: Pick<McpServer, "registerResource">, resourceUri = defaultAgentUIResourceUri): void {
   registerAppResource(
@@ -278,16 +278,6 @@ export function agentUIAppHtml(): string {
       if (widget.type === "confirmation") return renderConfirmation(widget);
       if (widget.type === "form") return renderForm(widget);
       if (widget.type === "plot") return renderPlot(widget);
-      if (widget.type === "progress") {
-        const wrap = el("div", "stack");
-        if (widget.label) wrap.append(el("strong", "", widget.label));
-        const progress = document.createElement("progress");
-        progress.value = widget.value ?? 0;
-        progress.max = widget.max ?? 100;
-        wrap.append(progress);
-        if (widget.status) wrap.append(el("small", "", widget.status));
-        return wrap;
-      }
       return el("pre", "", JSON.stringify(widget, null, 2));
     }
     function renderContainer(widget) {

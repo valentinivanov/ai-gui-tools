@@ -30,16 +30,21 @@ export async function runMockTurn(ui: AgentUI, input: string): Promise<string> {
     return "I opened an interactive deployment form. Submit it when the settings look right.";
   }
 
-  if (normalized.includes("postgres") || normalized.includes("dynamodb") || normalized.includes("sqlite") || normalized.includes("compare")) {
-    await ui.handleToolCall("ui.compare", {
+  if (normalized.includes("postgres") || normalized.includes("dynamodb") || normalized.includes("sqlite")) {
+    await ui.handleToolCall("ui.table", {
       viewId: "database-comparison",
       title: "Database comparison",
-      items: ["Postgres", "DynamoDB", "SQLite"],
-      criteria: ["Cost", "Scale", "Ops", "Offline"],
+      columns: [
+        { key: "item", label: "Option" },
+        { key: "cost", label: "Cost" },
+        { key: "scale", label: "Scale" },
+        { key: "ops", label: "Ops" },
+        { key: "offline", label: "Offline" }
+      ],
       rows: [
-        { item: "Postgres", Cost: "Medium", Scale: "High", Ops: "Medium", Offline: "No" },
-        { item: "DynamoDB", Cost: "Usage-based", Scale: "Very high", Ops: "Low", Offline: "No" },
-        { item: "SQLite", Cost: "Low", Scale: "Low-medium", Ops: "Very low", Offline: "Yes" }
+        { item: "Postgres", cost: "Medium", scale: "High", ops: "Medium", offline: "No" },
+        { item: "DynamoDB", cost: "Usage-based", scale: "Very high", ops: "Low", offline: "No" },
+        { item: "SQLite", cost: "Low", scale: "Low-medium", ops: "Very low", offline: "Yes" }
       ]
     });
     return "I put the database options in a comparison table so the tradeoffs are easier to scan.";

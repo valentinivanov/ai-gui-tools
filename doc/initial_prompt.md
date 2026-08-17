@@ -1,6 +1,6 @@
 Design and implement a prototype TypeScript library for a concept that could be described as **“Dear ImGui for LLMs/agents.”**
 
-The core idea is that LLMs should not be limited to chat or voice as their user interface. For many tasks, a form, table, diff viewer, selector, tree, confirmation dialog, progress view, or other transient GUI/TUI would be much more effective.
+The core idea is that LLMs should not be limited to chat or voice as their user interface. For many tasks, a form, table, diff viewer, selector, tree, confirmation dialog, plot, or other transient GUI/TUI would be much more effective.
 
 The LLM should not generate arbitrary HTML, React code, JavaScript, or native GUI code. Instead, UI construction should be exposed to the LLM as a set of normal tools/function calls, just like filesystem, search, Git, or application tools.
 
@@ -67,7 +67,7 @@ type Widget =
   | TableWidget
   | TreeWidget
   | TabsWidget
-  | ProgressWidget
+  | PlotWidget
   | DiffWidget
   | ConfirmationWidget;
 ```
@@ -108,10 +108,10 @@ The model should preferably work with semantic interaction tools such as:
 ```text
 ui.form
 ui.choice
-ui.compare
+ui.table
+ui.plot
 ui.review
 ui.confirm
-ui.table
 ui.tree
 ui.diff
 ```
@@ -126,7 +126,6 @@ ui.checkbox
 ui.select
 ui.input
 ui.tabs
-ui.progress
 ```
 
 The tool descriptions should explain when each interaction is appropriate.
@@ -136,10 +135,6 @@ Examples:
 ```text
 ui.form
 Use when several related inputs or choices need to be collected.
-
-ui.compare
-Use when the user needs to compare several alternatives across
-multiple criteria.
 
 ui.diff
 Use when reviewing proposed changes.
@@ -520,10 +515,10 @@ Use the following implementation choices for the PoC:
    * `ui.form`
    * `ui.choice`
    * `ui.table`
-   * `ui.compare`
    * `ui.diff`
    * `ui.confirm`
-   * `ui.progress`
+   * `ui.container`
+   * `ui.plot`
 
    Also provide a general `ui.view.replace` escape hatch that accepts a renderer-independent widget tree.
 

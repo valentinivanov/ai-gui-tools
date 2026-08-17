@@ -191,7 +191,7 @@ const server = new McpServer({ name: "my-server", version: "1.0.0" });
 
 registerAgentUITools(server, {
   ui,
-  capabilities: ["form", "table", "compare", "confirm"]
+  capabilities: ["form", "table", "confirm"]
 });
 
 registerMyApplicationTools(server);
@@ -255,7 +255,7 @@ export function App() {
 }
 ```
 
-React concepts do not appear in `@agentui/core`. The protocol describes widgets such as forms, tables, diffs, confirmations, tabs, and progress. Styling is renderer-owned and can be replaced by consumers.
+React concepts do not appear in `@agentui/core`. The protocol describes widgets such as forms, tables, diffs, confirmations, and tabs. Styling is renderer-owned and can be replaced by consumers.
 
 ## Tool Surface
 
@@ -264,10 +264,10 @@ The PoC exposes semantic tools:
 - `ui.form`
 - `ui.choice`
 - `ui.table`
-- `ui.compare`
 - `ui.diff`
 - `ui.confirm`
-- `ui.progress`
+- `ui.container`
+- `ui.plot`
 - `ui.view.replace`
 
 Low-level widgets exist in the protocol representation, but v0 intentionally avoids exposing a large collection of low-level LLM tools.
