@@ -1,5 +1,7 @@
 # AgentUI
 
+[![Custgom UI Demo](https://github.com/valentinivanov/ai-gui-tools/blob/main/doc/video_frame.png)](https://youtu.be/hU1uXoRoMXg "Custom UI demo")
+
 Prototype TypeScript library for renderer-independent interactive UI as an LLM tool capability: "Dear ImGui for LLMs/agents."
 
 AgentUI is not an agent framework. It exposes UI tools that can be added to an existing tool-calling loop, stores the resulting UI state, and lets renderers observe that state.
