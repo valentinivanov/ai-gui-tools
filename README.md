@@ -22,8 +22,10 @@ user request
 - `@agentui/core`: protocol types, state management, semantic tool provider, event handling.
 - `@agentui/openai`: OpenAI Responses API tool conversion and tool-call helpers.
 - `@agentui/react`: reference React renderer and minimal default CSS.
+- `@agentui/wasm`: experimental browser Worker runtime for sandboxed WebAssembly applets.
 - `@agentui/mcp`: MCP tools, Streamable HTTP/stdio server helpers, and MCP Apps resource shell.
 - `examples/basic`: Vite + React PoC with mock mode and optional live OpenAI mode.
+- `examples/applets/pong`: isolated AssemblyScript applet build example.
 - `examples/mcp`: runnable MCP server example.
 
 The monorepo root is private. Package names use the intended future names, but this PoC is not set up for publishing.
@@ -43,6 +45,13 @@ pnpm dev
 ```
 
 The example runs in mock mode without an API key. It deterministically demonstrates deployment forms, comparison tables, diff review, confirmations, plain text fallback, and UI event feedback.
+
+Build the optional WASM applet demo before trying the `WASM game` sample:
+
+```sh
+pnpm applet:build
+pnpm dev
+```
 
 Optional live mode:
 
@@ -258,6 +267,22 @@ export function App() {
 ```
 
 React concepts do not appear in `@agentui/core`. The protocol describes widgets such as forms, tables, diffs, confirmations, and tabs. Styling is renderer-owned and can be replaced by consumers.
+
+## WASM Applets
+
+AgentUI includes an experimental `wasm-applet` widget for mini-applications that need local executable behavior, such as small games, simulations, diagram canvases, drawing tools, node graphs, or timeline editors. This is an escape hatch above declarative UI, not a replacement for normal widgets.
+
+The default model-facing demo tool is `ui.applet-pong`, because the current MCP Apps resource bundles only the prebuilt Pong module. A generic `ui.applet` capability still exists for hosts that can provide arbitrary modules, but it is not enabled by default.
+
+The browser v0 runtime lives in `@agentui/wasm`. It validates modules, enforces basic module-size and canvas-size limits, runs applets in a Web Worker, owns the HTML Canvas 2D context, and exposes only a small `agentui` host ABI for draw commands and semantic event emission. It does not expose network, filesystem, clipboard, DOM, cookies, local storage, arbitrary JavaScript imports, or host application APIs.
+
+Known and generated applets are both represented by the same widget. Known applets can use a module name resolved by the renderer; generated applets should go through a visible source/build pipeline. The initial example uses AssemblyScript `0.28.20`, verified as the latest npm release during this implementation, and builds `examples/applets/pong/src/applet.ts` into a normal `.wasm` artifact:
+
+```sh
+pnpm applet:build
+```
+
+Browser-native WebAssembly cannot reliably preempt a runaway export by instruction count. The worker boundary keeps applet execution off the UI thread and permits termination during lifecycle cleanup, but stronger CPU metering remains future work.
 
 ## Tool Surface
 

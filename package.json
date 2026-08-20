@@ -8,7 +8,8 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --filter @agentui/basic-example dev",
-    "agentui-mcp": "pnpm --filter @agentui/mcp start"
+    "agentui-mcp": "pnpm --filter @agentui/mcp start",
+    "applet:build": "pnpm --filter @agentui/applet-pong build"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

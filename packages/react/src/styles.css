@@ -257,6 +257,41 @@
   background: #fbfcfd;
 }
 
+.agentui-applet {
+  display: grid;
+  gap: 8px;
+}
+
+.agentui-applet canvas {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #d7dce2;
+  border-radius: 6px;
+  background: #0f172a;
+  outline: none;
+  touch-action: none;
+}
+
+.agentui-applet canvas:focus {
+  border-color: #15803d;
+  box-shadow: 0 0 0 3px rgb(21 128 61 / 18%);
+}
+
+.agentui-applet-status,
+.agentui-applet-error {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.agentui-applet-status {
+  color: #475569;
+}
+
+.agentui-applet-error {
+  color: #991b1b;
+}
+
 .agentui-plot-axis {
   stroke: #94a3b8;
   stroke-width: 1;

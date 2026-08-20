@@ -1,3 +1,5 @@
+import type { A2UISurfaceDocument } from "./a2ui/index.js";
+
 export type AgentUICapability =
   | "form"
   | "choice"
@@ -6,6 +8,8 @@ export type AgentUICapability =
   | "confirm"
   | "container"
   | "plot"
+  | "applet"
+  | "applet-pong"
   | "view.replace";
 
 export interface AgentUIOptions {
@@ -19,6 +23,7 @@ export interface AgentUIState {
 export interface View {
   id: string;
   title?: string | undefined;
+  a2ui?: A2UISurfaceDocument | undefined;
   children: Widget[];
 }
 
@@ -36,6 +41,7 @@ export type Widget =
   | TreeWidget
   | TabsWidget
   | PlotWidget
+  | WasmAppletWidget
   | DiffWidget
   | ConfirmationWidget;
 
@@ -181,6 +187,25 @@ export interface PlotWidget {
   points: PlotPoint[];
 }
 
+export type AppletCapability = "canvas" | "pointer" | "keyboard" | "timer" | "emit_event";
+
+export interface WasmAppletModule {
+  name?: string | undefined;
+  url?: string | undefined;
+  bytes?: Uint8Array | undefined;
+  hash?: string | undefined;
+}
+
+export interface WasmAppletWidget {
+  type: "wasm-applet";
+  id: string;
+  module: WasmAppletModule;
+  width?: number | undefined;
+  height?: number | undefined;
+  capabilities: AppletCapability[];
+  initialState?: unknown;
+}
+
 export interface DiffFile {
   path: string;
   oldText?: string | undefined;
@@ -206,7 +231,8 @@ export interface ConfirmationWidget {
 export type UIEvent =
   | { type: "click"; id: string }
   | { type: "change"; id: string; value: unknown }
-  | { type: "submit"; id: string; values: Record<string, unknown> };
+  | { type: "submit"; id: string; values: Record<string, unknown> }
+  | { type: "applet_event"; id: string; event: { type: string; payload?: unknown } };
 
 export type UIEventPolicy = "local" | "model";
 
@@ -224,6 +250,7 @@ export interface ToolResult {
   ok: boolean;
   content: string;
   state?: AgentUIState;
+  a2ui?: A2UISurfaceDocument[] | undefined;
 }
 
 export interface ToolProvider {

@@ -22,6 +22,7 @@ declare const __AGENTUI_PROXY_BASE_URL__: string;
 
 function App(): React.ReactElement {
   const ui = useMemo(() => createAgentUI(), []);
+  const appletModules = useMemo(() => ({ pong: "/applets/pong/applet.wasm" }), []);
   const toolDefinitions = useMemo(() => ui.toolProvider.definitions(), [ui]);
   const providerToolDefinitions = useMemo(() => createOpenAIAdapter(ui).tools(), [ui]);
   const [mode, setMode] = useState<Mode>(import.meta.env.VITE_OPENAI_API_KEY ? "live" : "mock");
@@ -120,6 +121,9 @@ function App(): React.ReactElement {
   }
 
   function closeViewForEvent(event: UIEvent): void {
+    if (event.type === "applet_event" && event.event.type !== "exit") {
+      return;
+    }
     const view = findViewForEvent(ui.getState().views, event);
     if (view) {
       ui.dispatch({ type: "close_view", id: view.id });
@@ -170,7 +174,7 @@ function App(): React.ReactElement {
               Open overlay
             </button>
           </div>
-          <AgentUI ui={ui} empty={<div className="empty-ui">No active AgentUI view.</div>} />
+          <AgentUI ui={ui} appletModules={appletModules} empty={<div className="empty-ui">No active AgentUI view.</div>} />
         </section>
 
         <form
@@ -197,6 +201,9 @@ function App(): React.ReactElement {
           </button>
           <button disabled={busy} onClick={() => setInput("Review these proposed changes.")}>
             Diff
+          </button>
+          <button disabled={busy} onClick={() => setInput("Open the Pong WASM game.")}>
+            WASM game
           </button>
           <button disabled={busy} onClick={() => setInput("Explain why the sky is blue.")}>
             Plain text
@@ -245,7 +252,7 @@ function App(): React.ReactElement {
             Close
           </button>
         </div>
-        <AgentUI ui={ui} empty={<div className="empty-ui">No active AgentUI view.</div>} />
+        <AgentUI ui={ui} appletModules={appletModules} empty={<div className="empty-ui">No active AgentUI view.</div>} />
       </aside>
     </main>
   );

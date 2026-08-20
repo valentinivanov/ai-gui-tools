@@ -5,6 +5,10 @@ export function classifyUIEvent(event: UIEvent): UIEventPolicy {
     return "model";
   }
 
+  if (event.type === "applet_event") {
+    return "model";
+  }
+
   if (event.type === "click" && (event.id.endsWith(":confirm") || event.id.endsWith(":cancel"))) {
     return "model";
   }

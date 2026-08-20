@@ -1,4 +1,5 @@
 import { agentUIInstructions } from "./instructions.js";
+import { viewToA2UI } from "./a2ui/index.js";
 import { populateComputedDiffs } from "./diff.js";
 import { commandFromTool, defaultCapabilities, toolDefinitions } from "./tools.js";
 import type {
@@ -65,7 +66,7 @@ class AgentUIStore implements AgentUI {
 
   dispatch(command: AgentUICommand): AgentUIState {
     if (command.type === "replace_view") {
-      const nextView = preserveValues(this.#state.views.find((view) => view.id === command.view.id), command.view);
+      const nextView = withA2UI(preserveValues(this.#state.views.find((view) => view.id === command.view.id), command.view));
       const existingIndex = this.#state.views.findIndex((view) => view.id === command.view.id);
       const views =
         existingIndex >= 0
@@ -87,7 +88,8 @@ class AgentUIStore implements AgentUI {
       return {
         ok: true,
         content: `AgentUI handled ${name}. The renderer-independent UI state was updated.`,
-        state: this.#state
+        state: this.#state,
+        a2ui: this.#state.views.map((view) => view.a2ui ?? viewToA2UI(view))
       };
     } catch (error) {
       return {
@@ -127,6 +129,11 @@ function preserveValues(previous: View | undefined, next: View): View {
     ...next,
     children: next.children.map((widget) => restoreWidgetValue(widget, values))
   };
+}
+
+function withA2UI(view: View): View {
+  const withoutStaleA2UI = { ...view, a2ui: undefined };
+  return { ...withoutStaleA2UI, a2ui: view.a2ui ?? viewToA2UI(withoutStaleA2UI) };
 }
 
 function collectValues(widgets: Widget[]): Map<string, unknown> {
@@ -208,6 +215,10 @@ function applyEventToState(state: AgentUIState, event: UIEvent): AgentUIState {
     return completedViewId ? { views: state.views.filter((view) => view.id !== completedViewId) } : state;
   }
 
+  if (event.type === "applet_event") {
+    return completedViewId ? { views: state.views.filter((view) => view.id !== completedViewId) } : state;
+  }
+
   const nextState = {
     views: state.views.map((view) => ({
       ...view,
@@ -219,6 +230,10 @@ function applyEventToState(state: AgentUIState, event: UIEvent): AgentUIState {
 }
 
 function completedViewIdForEvent(state: AgentUIState, event: UIEvent): string | undefined {
+  if (event.type === "applet_event" && event.event.type === "exit") {
+    return state.views.find((view) => view.children.some((widget) => widgetMatchesAction(widget, event.id)))?.id;
+  }
+
   if (event.type === "submit") {
     return state.views.find((view) => view.children.some((widget) => widgetMatchesSubmit(widget, event.id)))?.id;
   }
@@ -238,7 +253,7 @@ function widgetMatchesSubmit(widget: Widget, id: string): boolean {
 }
 
 function widgetMatchesAction(widget: Widget, id: string): boolean {
-  if (widget.type === "form" || widget.type === "confirmation" || widget.type === "button") return widget.id === id;
+  if (widget.type === "form" || widget.type === "confirmation" || widget.type === "button" || widget.type === "wasm-applet") return widget.id === id;
   if (widget.type === "tabs") return widget.tabs.some((tab) => tab.children.some((child) => widgetMatchesAction(child, id)));
   return false;
 }

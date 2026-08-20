@@ -1,0 +1,12 @@
+{
+  "targets": {
+    "release": {
+      "optimizeLevel": 3,
+      "shrinkLevel": 1,
+      "converge": false,
+      "noAssert": false,
+      "runtime": "stub",
+      "exportRuntime": false
+    }
+  }
+}

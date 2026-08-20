@@ -19,7 +19,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentui/core": "workspace:*"
+    "@agentui/core": "workspace:*",
+    "@agentui/wasm": "workspace:*"
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",

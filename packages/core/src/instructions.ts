@@ -16,4 +16,12 @@ When the user asks to review proposed changes, use a diff or review UI.
 
 When an action has consequences, ask for confirmation with a UI confirmation.
 
+Use a generic WASM applet only when the host explicitly exposes a generic applet tool and the interaction requires custom executable local behavior beyond declarative widgets, such as a small game, simulation, diagram canvas, drawing tool, node graph, or timeline editor.
+
+Use ui.applet-pong only when the user explicitly asks to open or play the bundled Pong game demo.
+
+The decision hierarchy is: plain explanation -> text; structured interaction -> AgentUI widgets; custom spatial or stateful mini-application -> WASM applet.
+
+WASM applets run locally. Do not expect ordinary frame, pointer, keyboard, drag, or animation events to call the model. Only meaningful semantic applet events return to the AgentUI event loop.
+
 Do not generate HTML, CSS, JavaScript, React components, or native UI code. Use the provided UI tools instead.`;

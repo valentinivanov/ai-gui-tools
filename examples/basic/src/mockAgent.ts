@@ -80,11 +80,23 @@ export async function runMockTurn(ui: AgentUI, input: string): Promise<string> {
     return "I opened a confirmation view.";
   }
 
+  if (normalized.includes("pong") || normalized.includes("game") || normalized.includes("wasm")) {
+    await ui.handleToolCall("ui.applet-pong", {
+      viewId: "pong",
+      title: "Pong applet",
+      id: "pong-game"
+    });
+    return "I opened a local WASM applet. Gameplay runs in the browser worker; only semantic game events return to the agent loop.";
+  }
+
   ui.clear();
   return "This request is clearer as plain text, so I did not create a UI. AgentUI is optional for each turn.";
 }
 
 export async function runMockEventTurn(event: UIEvent): Promise<string> {
+  if (event.type === "applet_event") {
+    return `Received semantic applet event "${event.event.type}": ${JSON.stringify(event.event.payload ?? {})}. Ordinary applet frames and input stayed local.`;
+  }
   if (event.type === "submit") {
     return `Received form submission: ${JSON.stringify(event.values)}. A host application could now call its deployment tool.`;
   }

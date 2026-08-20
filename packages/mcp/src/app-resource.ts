@@ -73,6 +73,11 @@ export function agentUIAppHtml(): string {
     .plot-line { fill: none; stroke: #2563eb; stroke-width: 2; }
     .plot-bar { stroke: #2563eb; stroke-width: 5; stroke-linecap: round; opacity: 0.72; }
     .plot-point { fill: #2563eb; stroke: #ffffff; stroke-width: 1.5; }
+    .applet { display: grid; gap: 8px; }
+    .applet canvas { width: 100%; max-width: 100%; height: auto; border: 1px solid #d7dce2; border-radius: 6px; background: #0f172a; outline: none; touch-action: none; }
+    .applet canvas:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgb(21 128 61 / 18%); }
+    .applet-status { color: #475569; font-size: 13px; line-height: 1.45; }
+    .applet-error { color: #991b1b; font-size: 13px; line-height: 1.45; }
     pre { overflow: auto; margin: 0; padding: 10px; background: #f7f9fb; border: 1px solid #e2e7ed; border-radius: 6px; }
     .diff-lines { overflow: auto; margin: 0; padding: 10px; background: #f7f9fb; border: 1px solid #e2e7ed; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; line-height: 1.45; }
     .diff-line { white-space: pre; }
@@ -96,6 +101,10 @@ export function agentUIAppHtml(): string {
     let syncInFlight = false;
     let nextRequestId = 1;
     const pendingRequests = new Map();
+    const appletRuntimes = new Map();
+    const knownAppletModules = {
+      pong: "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KQIAAAAiAAAAUAByAGUAcwBzACAAUwAgAGYAbwByACAAcwB0AGEAcgB0AEGsDwsBPABBuA8LJwIAAAAgAAAAUAByAGUAcwBzACAARQAgAGYAbwByACAAZQB4AGkAdABB7A8LARwAQfgPCxMCAAAADAAAAFMAYwBvAHIAZQAgAEGMEAsBLABBmBALGQIAAAASAAAARwBBAE0ARQAgAE8AVgBFAFIAQbwQCwE8AEHIEAsrAgAAACQAAABQAHIAZQBzAHMAIABSACAAdABvACAAcgBlAHMAdABhAHIAdABB/BALATwAQYgRCyUCAAAAHgAAAFAAcgBlAHMAcwAgAEUAIAB0AG8AIABlAHgAaQB0AEG8EQsBbABByBELXwIAAABYAAAAewAiAHQAeQBwAGUAIgA6ACIAZQB4AGkAdAAiACwAIgBwAGEAeQBsAG8AYQBkACIAOgB7ACIAcgBlAGEAcwBvAG4AIgA6ACIAdABpAHQAbABlACIAfQB9AEGsEgsBfABBuBILZwIAAABgAAAAewAiAHQAeQBwAGUAIgA6ACIAZQB4AGkAdAAiACwAIgBwAGEAeQBsAG8AYQBkACIAOgB7ACIAcgBlAGEAcwBvAG4AIgA6ACIAZwBhAG0AZQBfAG8AdgBlAHIAIgB9AH0="
+    };
 
     window.addEventListener("message", (event) => {
       if (event.source !== window.parent) return;
@@ -249,6 +258,7 @@ export function agentUIAppHtml(): string {
       });
     }
     function render() {
+      stopApplets();
       const views = state?.views ?? [];
       sequence.textContent = sequenceText();
       if (views.length === 0) {
@@ -264,9 +274,102 @@ export function agentUIAppHtml(): string {
       if (view.title) section.append(el("h2", "", view.title));
       if (readOnly) section.append(el("div", "readonly-badge", "Read-only previous UI"));
       const stack = el("div", "stack");
-      for (const widget of view.children ?? []) stack.append(renderWidget(widget));
+      if (view.a2ui) stack.append(renderA2UISurface(view.a2ui));
+      else for (const widget of view.children ?? []) stack.append(renderWidget(widget));
       section.append(stack);
       return section;
+    }
+    function renderA2UISurface(surface) {
+      const wrap = el("div", "stack");
+      const components = new Map((surface.components ?? []).map((component) => [component.id, component]));
+      const dataModel = surface.dataModel ?? {};
+      const rootComponent = components.get(surface.root ?? "root");
+      if (rootComponent) wrap.append(renderA2UIComponent(rootComponent, components, dataModel));
+      return wrap;
+    }
+    function renderA2UIComponent(component, components, dataModel) {
+      const renderChild = (id) => {
+        const child = components.get(id);
+        return child ? renderA2UIComponent(child, components, dataModel) : document.createTextNode("");
+      };
+      if (component.component === "Column") {
+        const wrap = el("div", "container");
+        for (const child of component.children ?? []) wrap.append(renderChild(child));
+        return wrap;
+      }
+      if (component.component === "Row") {
+        const wrap = el("div", "actions");
+        for (const child of component.children ?? []) wrap.append(renderChild(child));
+        return wrap;
+      }
+      if (component.component === "Text") return el("p", "", dynamicValue(component.text, dataModel));
+      if (component.component === "Divider") return el("div", "separator");
+      if (component.component === "Button") {
+        const button = el("button", component.variant === "primary" ? "primary" : "");
+        button.disabled = readOnly;
+        button.append(renderChild(component.child));
+        button.onclick = () => sendA2UIAction(component.action, component.id, dataModel);
+        return button;
+      }
+      if (component.component === "TextField") {
+        const label = el("label", "field");
+        label.append(el("span", "", dynamicValue(component.label, dataModel)));
+        const input = document.createElement("input");
+        input.disabled = readOnly;
+        input.type = component.variant === "number" ? "number" : component.variant === "obscured" ? "password" : "text";
+        input.placeholder = dynamicValue(component.placeholder, dataModel);
+        input.value = dynamicValue(component.value ?? "", dataModel);
+        input.onchange = () => {
+          const path = bindingPath(component.value);
+          if (path) setDataPath(dataModel, path, input.type === "number" ? Number(input.value) : input.value);
+        };
+        label.append(input);
+        return label;
+      }
+      if (component.component === "CheckBox") {
+        const label = el("label", "check");
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.disabled = readOnly;
+        input.checked = Boolean(rawDynamicValue(component.value, dataModel));
+        input.onchange = () => {
+          const path = bindingPath(component.value);
+          if (path) setDataPath(dataModel, path, input.checked);
+        };
+        label.append(input, document.createTextNode(dynamicValue(component.label, dataModel)));
+        return label;
+      }
+      if (component.component === "ChoicePicker") {
+        const label = el("label", "field");
+        if (component.label) label.append(el("span", "", dynamicValue(component.label, dataModel)));
+        const select = document.createElement("select");
+        select.disabled = readOnly;
+        select.value = String((rawDynamicValue(component.value, dataModel) ?? [])[0] ?? "");
+        for (const option of component.options ?? []) {
+          const opt = document.createElement("option"); opt.value = option.value; opt.textContent = dynamicValue(option.label, dataModel); select.append(opt);
+        }
+        select.onchange = () => {
+          const path = bindingPath(component.value);
+          if (path) setDataPath(dataModel, path, select.value ? [select.value] : []);
+        };
+        label.append(select);
+        return label;
+      }
+      if (component.component === "agentui.Table") return renderTable({ columns: component.columns, rows: component.rows, name: component.name });
+      if (component.component === "agentui.Diff") return renderDiff({ files: component.files });
+      if (component.component === "agentui.Plot") return renderPlot({ title: component.title, mode: component.mode, points: component.points });
+      if (component.component === "agentui.WasmApplet") return renderWasmApplet({ id: component.id, module: component.module, width: component.width, height: component.height, capabilities: component.capabilities, initialState: component.initialState });
+      return el("pre", "", JSON.stringify(component, null, 2));
+    }
+    function sendA2UIAction(action, componentId, dataModel) {
+      if (!action) return;
+      if (action.name === "submit") {
+        sendEvent({ type: "submit", id: action.payload?.id ?? componentId, values: recordValue(dataAtPath(dataModel, action.payload?.valuesPath ?? "/")) });
+      } else if (action.name === "change") {
+        sendEvent({ type: "change", id: action.payload?.id ?? componentId, value: action.payload?.value });
+      } else {
+        sendEvent({ type: "click", id: action.payload?.id ?? componentId });
+      }
     }
     function renderWidget(widget) {
       if (widget.type === "text") return el("p", "", widget.text);
@@ -278,7 +381,209 @@ export function agentUIAppHtml(): string {
       if (widget.type === "confirmation") return renderConfirmation(widget);
       if (widget.type === "form") return renderForm(widget);
       if (widget.type === "plot") return renderPlot(widget);
+      if (widget.type === "wasm-applet") return renderWasmApplet(widget);
       return el("pre", "", JSON.stringify(widget, null, 2));
+    }
+    function rawDynamicValue(value, dataModel) {
+      const path = bindingPath(value);
+      return path ? dataAtPath(dataModel, path) : value;
+    }
+    function dynamicValue(value, dataModel) {
+      const resolved = rawDynamicValue(value, dataModel);
+      return resolved === undefined || resolved === null ? "" : String(resolved);
+    }
+    function bindingPath(value) {
+      return value && typeof value === "object" && !Array.isArray(value) && typeof value.path === "string" ? value.path : undefined;
+    }
+    function dataAtPath(dataModel, path) {
+      if (!path || path === "/") return dataModel;
+      return path.split("/").filter(Boolean).reduce((cursor, part) => cursor && typeof cursor === "object" && !Array.isArray(cursor) ? cursor[part] : undefined, dataModel);
+    }
+    function setDataPath(dataModel, path, value) {
+      const parts = path.split("/").filter(Boolean);
+      let cursor = dataModel;
+      for (const part of parts.slice(0, -1)) {
+        if (!cursor[part] || typeof cursor[part] !== "object" || Array.isArray(cursor[part])) cursor[part] = {};
+        cursor = cursor[part];
+      }
+      const key = parts.at(-1);
+      if (key) cursor[key] = value;
+    }
+    function recordValue(value) {
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    }
+    function renderWasmApplet(widget) {
+      const wrap = el("div", "applet");
+      const canvas = document.createElement("canvas");
+      const width = Number(widget.width) || 640;
+      const height = Number(widget.height) || 360;
+      canvas.width = width;
+      canvas.height = height;
+      canvas.tabIndex = readOnly ? -1 : 0;
+      canvas.setAttribute("aria-label", widget.module?.name ? widget.module.name + " applet" : "WASM applet");
+      const status = el("div", "applet-status", "Loading applet...");
+      wrap.append(canvas, status);
+      queueMicrotask(() => startApplet(widget, canvas, status));
+      return wrap;
+    }
+    async function startApplet(widget, canvas, status) {
+      const moduleName = widget.module?.name;
+      const base64 = moduleName ? knownAppletModules[moduleName] : undefined;
+      if (!base64) {
+        status.className = "applet-error";
+        status.textContent = "Unknown applet module: " + (moduleName ?? "unnamed");
+        return;
+      }
+      try {
+        const runtime = await createInlineAppletRuntime(widget, canvas, base64);
+        appletRuntimes.set(widget.id, runtime);
+        status.textContent = "Click the canvas, then use the keyboard.";
+      } catch (error) {
+        status.className = "applet-error";
+        status.textContent = "Applet failed to start: " + String(error?.message ?? error);
+      }
+    }
+    async function createInlineAppletRuntime(widget, canvas, base64) {
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas 2D is not available");
+      const decoder = new TextDecoder();
+      const commands = [];
+      let memory;
+      let exportsObject;
+      let animation = 0;
+      let lastFrame = 0;
+      const readText = (ptr, len) => memory ? decoder.decode(new Uint8Array(memory.buffer, ptr, len)) : "";
+      const color = (value) => "#" + (value >>> 0).toString(16).padStart(8, "0").slice(0, 6);
+      const imports = {
+        env: {
+          abort: (messagePtr, filePtr, line, column) => {
+            throw new Error("WASM applet aborted at " + line + ":" + column);
+          }
+        },
+        agentui: {
+          abi_version: () => 1,
+          clear: (rgba) => commands.push({ op: "clear", color: color(rgba) }),
+          draw_rect: (x, y, width, height, rgba) => commands.push({ op: "rect", x, y, width, height, color: color(rgba) }),
+          draw_circle: (x, y, radius, rgba) => commands.push({ op: "circle", x, y, radius, color: color(rgba) }),
+          draw_line: (x1, y1, x2, y2, width, rgba) => commands.push({ op: "line", x1, y1, x2, y2, width, color: color(rgba) }),
+          draw_text: (ptr, len, x, y, size, rgba) => commands.push({ op: "text", x, y, size, color: color(rgba), text: readText(ptr, len) }),
+          emit_event: (ptr, len) => {
+            const event = JSON.parse(readText(ptr, len));
+            if (event && typeof event.type === "string") sendEvent({ type: "applet_event", id: widget.id, event });
+          }
+        }
+      };
+      const bytes = base64Bytes(base64);
+      if (!WebAssembly.validate(bytes)) throw new Error("Invalid WebAssembly module");
+      const instance = await WebAssembly.instantiate(bytes, imports);
+      exportsObject = instance.instance ? instance.instance.exports : instance.exports;
+      memory = exportsObject.memory instanceof WebAssembly.Memory ? exportsObject.memory : undefined;
+      callExport(exportsObject, "init", canvas.width, canvas.height);
+      flushDrawCommands(context, commands);
+      const keyHandler = (event) => {
+        if (readOnly) return;
+        event.preventDefault();
+        callExport(exportsObject, "key_event", event.type === "keydown" ? 1 : 2, browserKeyCode(event.code), event.repeat ? 1 : 0);
+        flushDrawCommands(context, commands);
+      };
+      canvas.addEventListener("keydown", keyHandler);
+      canvas.addEventListener("keyup", keyHandler);
+      canvas.addEventListener("pointerdown", (event) => {
+        if (readOnly) return;
+        canvas.focus();
+        canvas.setPointerCapture(event.pointerId);
+        sendPointer(exportsObject, canvas, event, 1);
+        flushDrawCommands(context, commands);
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (readOnly) return;
+        sendPointer(exportsObject, canvas, event, 2);
+        flushDrawCommands(context, commands);
+      });
+      canvas.addEventListener("pointerup", (event) => {
+        if (readOnly) return;
+        sendPointer(exportsObject, canvas, event, 3);
+        flushDrawCommands(context, commands);
+      });
+      const tick = (time) => {
+        const previous = lastFrame || time;
+        lastFrame = time;
+        callExport(exportsObject, "update", time - previous);
+        flushDrawCommands(context, commands);
+        animation = requestAnimationFrame(tick);
+      };
+      animation = requestAnimationFrame(tick);
+      return {
+        destroy() {
+          cancelAnimationFrame(animation);
+          callExport(exportsObject, "destroy");
+        }
+      };
+    }
+    function stopApplets() {
+      for (const runtime of appletRuntimes.values()) runtime.destroy();
+      appletRuntimes.clear();
+    }
+    function base64Bytes(value) {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+      return bytes;
+    }
+    function callExport(exportsObject, name, ...args) {
+      const fn = exportsObject?.[name];
+      if (typeof fn === "function") fn(...args);
+    }
+    function sendPointer(exportsObject, canvas, event, type) {
+      const rect = canvas.getBoundingClientRect();
+      callExport(
+        exportsObject,
+        "pointer_event",
+        type,
+        event.pointerId,
+        (event.clientX - rect.left) * (canvas.width / rect.width),
+        (event.clientY - rect.top) * (canvas.height / rect.height),
+        event.button
+      );
+    }
+    function browserKeyCode(code) {
+      if (code === "ArrowLeft") return 37;
+      if (code === "ArrowRight") return 39;
+      if (code === "ArrowUp") return 38;
+      if (code === "ArrowDown") return 40;
+      if (code.startsWith("Key") && code.length === 4) return code.charCodeAt(3);
+      if (code.startsWith("Digit") && code.length === 6) return code.charCodeAt(5);
+      return code.length > 0 ? code.charCodeAt(0) : 0;
+    }
+    function flushDrawCommands(context, commands) {
+      while (commands.length > 0) renderDrawCommand(context, commands.shift());
+    }
+    function renderDrawCommand(context, command) {
+      context.save();
+      if (command.op === "clear") {
+        context.fillStyle = command.color;
+        context.fillRect(0, 0, context.canvas.width, context.canvas.height);
+      } else if (command.op === "rect") {
+        context.fillStyle = command.color;
+        context.fillRect(command.x, command.y, command.width, command.height);
+      } else if (command.op === "circle") {
+        context.fillStyle = command.color;
+        context.beginPath();
+        context.arc(command.x, command.y, command.radius, 0, Math.PI * 2);
+        context.fill();
+      } else if (command.op === "line") {
+        context.strokeStyle = command.color;
+        context.lineWidth = command.width;
+        context.beginPath();
+        context.moveTo(command.x1, command.y1);
+        context.lineTo(command.x2, command.y2);
+        context.stroke();
+      } else if (command.op === "text") {
+        context.fillStyle = command.color;
+        context.font = command.size + "px ui-sans-serif, system-ui, sans-serif";
+        context.fillText(command.text, command.x, command.y);
+      }
+      context.restore();
     }
     function renderContainer(widget) {
       const wrap = el("div", "container");

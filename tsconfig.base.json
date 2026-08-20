@@ -17,7 +17,8 @@
       "@agentui/core": ["packages/core/src/index.ts"],
       "@agentui/openai": ["packages/openai/src/index.ts"],
       "@agentui/react": ["packages/react/src/index.tsx"],
-      "@agentui/react/styles.css": ["packages/react/src/styles.css"]
+      "@agentui/react/styles.css": ["packages/react/src/styles.css"],
+      "@agentui/wasm": ["packages/wasm/src/index.ts"]
     }
   }
 }

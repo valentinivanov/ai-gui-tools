@@ -1,14 +1,36 @@
-import React, { useSyncExternalStore } from "react";
-import type { AgentUI as AgentUICore, FormField, TreeNode, UIEvent, View, Widget } from "@agentui/core";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type {
+  A2UIAction,
+  A2UIComponent,
+  A2UISurfaceDocument,
+  AgentUI as AgentUICore,
+  FormField,
+  TreeNode,
+  UIEvent,
+  View,
+  WasmAppletWidget as CoreWasmAppletWidget,
+  Widget
+} from "@agentui/core";
+import {
+  createBrowserWasmAppletRuntime,
+  renderDrawCommands,
+  type AppletKeyEvent,
+  type AppletPointerEvent,
+  type WasmAppletManifest,
+  type WasmAppletRuntime
+} from "@agentui/wasm";
 import "./styles.css";
+
+const defaultAppletModules: Record<string, string> = {};
 
 export interface AgentUIProps {
   ui: AgentUICore;
   className?: string;
   empty?: React.ReactNode;
+  appletModules?: Record<string, string> | undefined;
 }
 
-export function AgentUI({ ui, className, empty = null }: AgentUIProps): React.ReactElement {
+export function AgentUI({ ui, className, empty = null, appletModules = defaultAppletModules }: AgentUIProps): React.ReactElement {
   const state = useSyncExternalStore(
     (listener) => ui.subscribe(listener),
     () => ui.getState(),
@@ -22,26 +44,181 @@ export function AgentUI({ ui, className, empty = null }: AgentUIProps): React.Re
   return (
     <div className={classNames("agentui", className)}>
       {state.views.map((view) => (
-        <AgentUIView key={view.id} ui={ui} view={view} />
+        <AgentUIView key={view.id} ui={ui} view={view} appletModules={appletModules} />
       ))}
     </div>
   );
 }
 
-function AgentUIView({ ui, view }: { ui: AgentUICore; view: View }): React.ReactElement {
+function AgentUIView({ ui, view, appletModules }: { ui: AgentUICore; view: View; appletModules: Record<string, string> }): React.ReactElement {
+  if (view.a2ui) {
+    return (
+      <section className="agentui-view" data-view-id={view.id}>
+        {view.title ? <h2>{view.title}</h2> : null}
+        <A2UISurfaceView ui={ui} surface={view.a2ui} appletModules={appletModules} />
+      </section>
+    );
+  }
+
   return (
     <section className="agentui-view" data-view-id={view.id}>
       {view.title ? <h2>{view.title}</h2> : null}
       <div className="agentui-stack">
         {view.children.map((widget, index) => (
-          <WidgetRenderer key={widgetKey(widget, index)} ui={ui} widget={widget} />
+          <WidgetRenderer key={widgetKey(widget, index)} ui={ui} widget={widget} appletModules={appletModules} />
         ))}
       </div>
     </section>
   );
 }
 
-function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): React.ReactElement {
+function A2UISurfaceView({ ui, surface, appletModules }: { ui: AgentUICore; surface: A2UISurfaceDocument; appletModules: Record<string, string> }): React.ReactElement {
+  const [dataModel, setDataModel] = useState<Record<string, unknown>>(() => surface.dataModel);
+  useEffect(() => setDataModel(surface.dataModel), [surface]);
+  const components = useMemo(() => new Map(surface.components.map((component) => [component.id, component])), [surface]);
+  const root = components.get(surface.root);
+
+  const setPath = (path: string, value: unknown) => {
+    setDataModel((current) => setDataPath(current, path, value));
+  };
+
+  const handleAction = (action: A2UIAction, componentId: string) => {
+    if (action.name === "change") {
+      const path = typeof action.payload?.path === "string" ? action.payload.path : undefined;
+      if (path) setPath(path, action.payload?.value);
+      return;
+    }
+    if (action.name === "submit") {
+      const valuesPath = typeof action.payload?.valuesPath === "string" ? action.payload.valuesPath : "/";
+      emit(ui, { type: "submit", id: String(action.payload?.id ?? componentId), values: recordValue(dataAtPath(dataModel, valuesPath)) });
+      return;
+    }
+    if (action.name === "applet_event") {
+      const event = action.payload?.event;
+      emit(ui, {
+        type: "applet_event",
+        id: String(action.payload?.id ?? componentId),
+        event: event && typeof event === "object" && "type" in event && typeof event.type === "string" ? event as { type: string; payload?: unknown } : { type: "unknown" }
+      });
+      return;
+    }
+    emit(ui, { type: "click", id: String(action.payload?.id ?? componentId) });
+  };
+
+  return (
+    <div className="agentui-stack" data-a2ui-surface-id={surface.surfaceId}>
+      {root ? <A2UIComponentView component={root} components={components} dataModel={dataModel} setPath={setPath} onAction={handleAction} appletModules={appletModules} /> : null}
+    </div>
+  );
+}
+
+function A2UIComponentView({
+  component,
+  components,
+  dataModel,
+  setPath,
+  onAction,
+  appletModules
+}: {
+  component: A2UIComponent;
+  components: Map<string, A2UIComponent>;
+  dataModel: Record<string, unknown>;
+  setPath(path: string, value: unknown): void;
+  onAction(action: A2UIAction, componentId: string): void;
+  appletModules: Record<string, string>;
+}): React.ReactElement {
+  const renderChild = (id: string) => {
+    const child = components.get(id);
+    return child ? <A2UIComponentView key={id} component={child} components={components} dataModel={dataModel} setPath={setPath} onAction={onAction} appletModules={appletModules} /> : null;
+  };
+
+  if (component.component === "Column") {
+    return <div className="agentui-container">{component.children.map(renderChild)}</div>;
+  }
+  if (component.component === "Row") {
+    return <div className="agentui-actions">{component.children.map(renderChild)}</div>;
+  }
+  if (component.component === "Text") {
+    return <p className="agentui-text">{dynamicValue(component.text, dataModel)}</p>;
+  }
+  if (component.component === "Divider") {
+    return <div className="agentui-separator" aria-hidden="true" />;
+  }
+  if (component.component === "Button") {
+    return (
+      <button className={`agentui-button agentui-button-${component.variant === "primary" ? "primary" : "secondary"}`} onClick={() => onAction(component.action, component.id)}>
+        {renderChild(component.child)}
+      </button>
+    );
+  }
+  if (component.component === "TextField") {
+    const valuePath = bindingPath(component.value);
+    return (
+      <label className="agentui-field">
+        <span>{dynamicValue(component.label, dataModel)}</span>
+        <input
+          type={component.variant === "number" ? "number" : component.variant === "obscured" ? "password" : "text"}
+          placeholder={dynamicValue(component.placeholder, dataModel)}
+          value={String(dynamicValue(component.value ?? "", dataModel))}
+          onChange={(event) => valuePath ? setPath(valuePath, component.variant === "number" ? coerceInputValue(event.currentTarget.value, "number") : event.currentTarget.value) : undefined}
+        />
+      </label>
+    );
+  }
+  if (component.component === "CheckBox") {
+    const valuePath = bindingPath(component.value);
+    return (
+      <label className="agentui-check">
+        <input type="checkbox" checked={Boolean(rawDynamicValue(component.value, dataModel))} onChange={(event) => valuePath ? setPath(valuePath, event.currentTarget.checked) : undefined} />
+        <span>{dynamicValue(component.label, dataModel)}</span>
+      </label>
+    );
+  }
+  if (component.component === "ChoicePicker") {
+    const valuePath = bindingPath(component.value);
+    const selected = arrayValue(rawDynamicValue(component.value, dataModel))[0] ?? "";
+    return (
+      <label className="agentui-field">
+        {component.label ? <span>{dynamicValue(component.label, dataModel)}</span> : null}
+        <select value={String(selected)} onChange={(event) => valuePath ? setPath(valuePath, event.currentTarget.value ? [event.currentTarget.value] : []) : undefined}>
+          <option value="" disabled>
+            Select...
+          </option>
+          {component.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {dynamicValue(option.label, dataModel)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  if (component.component === "Tabs") {
+    const active = component.tabs[0];
+    return <div className="agentui-tabs">{active ? renderChild(active.child) : null}</div>;
+  }
+  if (component.component === "agentui.Table") {
+    return <A2UITable component={component} />;
+  }
+  if (component.component === "agentui.Diff") {
+    return <DiffLines text={component.files.map((file) => String(file.patch ?? file.path ?? "")).join("\n")} />;
+  }
+  if (component.component === "agentui.Plot") {
+    return <PlotWidgetView widget={{ type: "plot", title: component.title, mode: component.mode, points: component.points }} />;
+  }
+  if (component.component === "agentui.WasmApplet") {
+    return (
+      <WasmAppletView
+        ui={{ handleEvent: (event: UIEvent) => onAction({ name: "applet_event", payload: { id: component.id, event: event.type === "applet_event" ? event.event : { type: event.type } } }, component.id) } as AgentUICore}
+        widget={{ type: "wasm-applet", id: component.id, module: component.module, width: component.width, height: component.height, capabilities: component.capabilities, initialState: component.initialState }}
+        appletModules={appletModules}
+      />
+    );
+  }
+  return <pre>{JSON.stringify(component, null, 2)}</pre>;
+}
+
+function WidgetRenderer({ ui, widget, appletModules }: { ui: AgentUICore; widget: Widget; appletModules: Record<string, string> }): React.ReactElement {
   switch (widget.type) {
     case "text":
       return <p className="agentui-text">{widget.text}</p>;
@@ -92,6 +269,8 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
       return <FormWidget ui={ui} widget={widget} />;
     case "plot":
       return <PlotWidgetView widget={widget} />;
+    case "wasm-applet":
+      return <WasmAppletView ui={ui} widget={widget} appletModules={appletModules} />;
     case "separator":
       return <div className="agentui-separator" aria-hidden="true" />;
     case "container":
@@ -99,7 +278,7 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
         <div className="agentui-container">
           {widget.title ? <h3>{widget.title}</h3> : null}
           {widget.children.map((child, index) => (
-            <WidgetRenderer key={widgetKey(child, index)} ui={ui} widget={child} />
+            <WidgetRenderer key={widgetKey(child, index)} ui={ui} widget={child} appletModules={appletModules} />
           ))}
         </div>
       );
@@ -161,7 +340,7 @@ function WidgetRenderer({ ui, widget }: { ui: AgentUICore; widget: Widget }): Re
             .map((tab) => (
               <div key={tab.id} className="agentui-tab-panel">
                 {tab.children.map((child, index) => (
-                  <WidgetRenderer key={widgetKey(child, index)} ui={ui} widget={child} />
+                  <WidgetRenderer key={widgetKey(child, index)} ui={ui} widget={child} appletModules={appletModules} />
                 ))}
               </div>
             ))}
@@ -204,6 +383,84 @@ function cellValue(row: Record<string, string | number | boolean | null | undefi
   const match = Object.keys(row).find((key) => key.toLowerCase() === column.key.toLowerCase() || key.toLowerCase() === column.label.toLowerCase());
   if (match) return row[match];
   return Object.values(row)[columnIndex];
+}
+
+function A2UITable({ component }: { component: Extract<A2UIComponent, { component: "agentui.Table" }> }): React.ReactElement {
+  return (
+    <div className="agentui-table-wrap">
+      <table className="agentui-table">
+        <thead>
+          {component.name ? (
+            <tr>
+              <th className="agentui-table-name" colSpan={Math.max(component.columns.length, 1)}>
+                {component.name}
+              </th>
+            </tr>
+          ) : null}
+          <tr>
+            {component.columns.map((column) => (
+              <th key={column.key}>{column.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {component.rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {component.columns.map((column) => (
+                <td key={column.key}>{formatCellValue(row[column.key])}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function dynamicValue(value: unknown, dataModel: Record<string, unknown>): string {
+  const resolved = rawDynamicValue(value, dataModel);
+  return resolved === undefined || resolved === null ? "" : String(resolved);
+}
+
+function rawDynamicValue(value: unknown, dataModel: Record<string, unknown>): unknown {
+  if (value && typeof value === "object" && !Array.isArray(value) && "path" in value && typeof value.path === "string") {
+    return dataAtPath(dataModel, value.path);
+  }
+  return value;
+}
+
+function bindingPath(value: unknown): string | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) && "path" in value && typeof value.path === "string" ? value.path : undefined;
+}
+
+function dataAtPath(dataModel: Record<string, unknown>, path: string): unknown {
+  if (path === "/" || path.length === 0) return dataModel;
+  return path.split("/").filter(Boolean).reduce<unknown>((cursor, part) => {
+    if (!cursor || typeof cursor !== "object" || Array.isArray(cursor)) return undefined;
+    return (cursor as Record<string, unknown>)[part];
+  }, dataModel);
+}
+
+function setDataPath(dataModel: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
+  const next = structuredClone(dataModel) as Record<string, unknown>;
+  const parts = path.split("/").filter(Boolean);
+  let cursor = next;
+  for (const part of parts.slice(0, -1)) {
+    const current = cursor[part];
+    if (!current || typeof current !== "object" || Array.isArray(current)) cursor[part] = {};
+    cursor = cursor[part] as Record<string, unknown>;
+  }
+  const key = parts.at(-1);
+  if (key) cursor[key] = value;
+  return next;
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function formatCellValue(value: unknown): string {
@@ -293,6 +550,139 @@ function PlotAxes({ plot }: { plot: PlotScale }): React.ReactElement {
       <line className="agentui-plot-axis" x1={plot.yAxisX} x2={plot.yAxisX} y1={plot.top} y2={plot.top + plot.height} />
     </>
   );
+}
+
+function WasmAppletView({
+  ui,
+  widget,
+  appletModules
+}: {
+  ui: AgentUICore;
+  widget: CoreWasmAppletWidget;
+  appletModules: Record<string, string>;
+}): React.ReactElement {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const runtimeRef = useRef<WasmAppletRuntime | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const lastFrameRef = useRef<number | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "destroyed" | "error">("loading");
+  const [error, setError] = useState<string | null>(null);
+  const width = widget.width ?? 640;
+  const height = widget.height ?? 360;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setStatus("error");
+      setError("Canvas 2D is not available");
+      return undefined;
+    }
+
+    const moduleUrl = widget.module.url ?? (widget.module.name ? appletModules[widget.module.name] : undefined);
+    if (!moduleUrl && !widget.module.bytes) {
+      setStatus("error");
+      setError("WASM applet module URL is missing");
+      return undefined;
+    }
+
+    const runtime = createBrowserWasmAppletRuntime({
+      onFrame: (commands) => renderDrawCommands(context, commands),
+      onEvent: (event) => emit(ui, { type: "applet_event", id: widget.id, event }),
+      onError: (nextError) => {
+        setStatus("error");
+        setError(nextError.message);
+      },
+      onStatus: (nextStatus) => setStatus(nextStatus)
+    });
+    runtimeRef.current = runtime;
+
+    const manifest: WasmAppletManifest = {
+      id: widget.id,
+      module: {
+        url: moduleUrl,
+        bytes: widget.module.bytes,
+        hash: widget.module.hash
+      },
+      width,
+      height,
+      capabilities: widget.capabilities,
+      initialState: widget.initialState
+    };
+
+    void runtime.load(manifest).catch((nextError: unknown) => {
+      setStatus("error");
+      setError(nextError instanceof Error ? nextError.message : "Failed to load WASM applet");
+    });
+
+    const tick = (time: number) => {
+      const previous = lastFrameRef.current ?? time;
+      lastFrameRef.current = time;
+      runtime.update(time - previous);
+      animationRef.current = window.requestAnimationFrame(tick);
+    };
+    animationRef.current = window.requestAnimationFrame(tick);
+
+    return () => {
+      if (animationRef.current !== null) window.cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+      lastFrameRef.current = null;
+      runtime.destroy();
+      runtimeRef.current = null;
+    };
+  }, [appletModules, height, ui, widget, width]);
+
+  useEffect(() => {
+    runtimeRef.current?.resize(width, height);
+  }, [width, height]);
+
+  return (
+    <div className="agentui-applet">
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        tabIndex={0}
+        aria-label={widget.module.name ? `${widget.module.name} applet` : "WASM applet"}
+        onPointerDown={(event) => {
+          event.currentTarget.focus();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          runtimeRef.current?.pointer(pointerEvent("down", event));
+        }}
+        onPointerMove={(event) => runtimeRef.current?.pointer(pointerEvent("move", event))}
+        onPointerUp={(event) => runtimeRef.current?.pointer(pointerEvent("up", event))}
+        onPointerCancel={(event) => runtimeRef.current?.pointer(pointerEvent("cancel", event))}
+        onKeyDown={(event) => runtimeRef.current?.key(keyEvent("down", event))}
+        onKeyUp={(event) => runtimeRef.current?.key(keyEvent("up", event))}
+      />
+      {status === "loading" ? <div className="agentui-applet-status">Loading applet...</div> : null}
+      {status === "error" ? <div className="agentui-applet-error">{error ?? "Applet failed"}</div> : null}
+    </div>
+  );
+}
+
+function pointerEvent(type: AppletPointerEvent["type"], event: React.PointerEvent<HTMLCanvasElement>): AppletPointerEvent {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const scaleX = event.currentTarget.width / rect.width;
+  const scaleY = event.currentTarget.height / rect.height;
+  return {
+    type,
+    pointerId: event.pointerId,
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
+    button: event.button
+  };
+}
+
+function keyEvent(type: AppletKeyEvent["type"], event: React.KeyboardEvent<HTMLCanvasElement>): AppletKeyEvent {
+  event.preventDefault();
+  return {
+    type,
+    key: event.key,
+    code: event.code,
+    repeat: event.repeat
+  };
 }
 
 function normalizedPlotPoints(points: Array<{ x: number; y: number } | [number, number]>): Array<{ x: number; y: number }> {

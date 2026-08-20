@@ -1,0 +1,12 @@
+{
+  "name": "@agentui/applet-pong",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p dist ../../basic/public/applets/pong && asc src/applet.ts --target release --outFile dist/applet.wasm --textFile dist/applet.wat --bindings esm && cp dist/applet.wasm ../../basic/public/applets/pong/applet.wasm"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.28.20"
+  }
+}

@@ -104,6 +104,66 @@ describe("AgentUI core", () => {
     }
   });
 
+  it("creates a prebuilt Pong WASM applet view", async () => {
+    const ui = createAgentUI();
+
+    await ui.handleToolCall("ui.applet-pong", {
+      viewId: "pong",
+      title: "Pong",
+      id: "pong-game"
+    });
+
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("wasm-applet");
+    if (widget?.type === "wasm-applet") {
+      expect(widget.module.name).toBe("pong");
+      expect(widget.capabilities).toContain("keyboard");
+      expect(widget.width).toBe(640);
+    }
+  });
+
+  it("can still create a generic WASM applet when the explicit capability is enabled", async () => {
+    const ui = createAgentUI({ capabilities: ["applet"] });
+
+    await ui.handleToolCall("ui.applet", {
+      viewId: "custom",
+      title: "Custom",
+      id: "custom-applet",
+      module: { name: "custom", url: "/applets/custom/applet.wasm" },
+      capabilities: ["canvas", "timer"]
+    });
+
+    const widget = ui.getState().views[0]?.children[0];
+    expect(widget?.type).toBe("wasm-applet");
+    if (widget?.type === "wasm-applet") {
+      expect(widget.module.url).toBe("/applets/custom/applet.wasm");
+    }
+  });
+
+  it("passes semantic applet events to subscribers without updating local controls", () => {
+    const ui = createAgentUI();
+    const listener = vi.fn();
+    ui.subscribeEvents(listener);
+    const event = { type: "applet_event" as const, id: "pong-game", event: { type: "game_over", payload: { score: 12 } } };
+
+    ui.handleEvent(event);
+
+    expect(listener).toHaveBeenCalledWith(event, ui.getState());
+  });
+
+  it("closes an applet view after an exit applet event", async () => {
+    const ui = createAgentUI();
+    await ui.handleToolCall("ui.applet-pong", {
+      viewId: "pong",
+      title: "Pong",
+      id: "pong-game"
+    });
+
+    ui.handleEvent({ type: "applet_event", id: "pong-game", event: { type: "exit", payload: { reason: "title" } } });
+
+    expect(ui.getState().views).toEqual([]);
+  });
+
   it("computes a unified diff when patch is omitted and diff is available", async () => {
     const ui = createAgentUI();
 

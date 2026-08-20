@@ -8,6 +8,7 @@ import type {
   TableColumn,
   ToolDefinition,
   View,
+  WasmAppletWidget,
   Widget
 } from "./types.js";
 
@@ -19,6 +20,7 @@ export const defaultCapabilities: AgentUICapability[] = [
   "confirm",
   "container",
   "plot",
+  "applet-pong",
   "view.replace"
 ];
 
@@ -184,6 +186,46 @@ export function toolDefinitions(capabilities: AgentUICapability[]): ToolDefiniti
         ["viewId", "title", "points"]
       )
     },
+    applet: {
+      name: "ui.applet",
+      description:
+        "Use only for custom spatial or stateful mini-applications that need executable local behavior beyond ordinary AgentUI widgets, such as small games, diagram canvases, simulations, drawing tools, node graphs, or timeline editors. Prefer text for explanations and declarative AgentUI widgets for normal forms, tables, choices, plots, diffs, and confirmations. Applets run locally; ordinary pointer, keyboard, and frame events do not go to the model. Only semantic applet events escape back to AgentUI.",
+      parameters: objectSchema(
+        {
+          viewId: { type: "string" },
+          title: { type: "string" },
+          id: { type: "string" },
+          module: objectSchema({
+            name: { type: "string" },
+            url: { type: "string" },
+            hash: { type: "string" }
+          }),
+          width: { type: "number" },
+          height: { type: "number" },
+          capabilities: {
+            type: "array",
+            items: { enum: ["canvas", "pointer", "keyboard", "timer", "emit_event"] }
+          },
+          initialState: {}
+        },
+        ["viewId", "title", "id", "module", "capabilities"]
+      )
+    },
+    "applet-pong": {
+      name: "ui.applet-pong",
+      description:
+        "Open the prebuilt Pong WASM applet. Use only when the user explicitly asks to play or open the Pong game demo. This is not a generic applet loader; it always opens the bundled Pong applet.",
+      parameters: objectSchema(
+        {
+          viewId: { type: "string" },
+          title: { type: "string" },
+          id: { type: "string" },
+          width: { type: "number" },
+          height: { type: "number" }
+        },
+        ["viewId", "title"]
+      )
+    },
     container: {
       name: "ui.container",
       description:
@@ -272,6 +314,18 @@ export function commandFromTool(name: string, args: unknown): { type: "replace_v
         title: optionalString(data.title),
         children: [plotWidget(data)]
       });
+    case "ui.applet":
+      return replaceView({
+        id: stringValue(data.viewId, "viewId"),
+        title: optionalString(data.title),
+        children: [appletWidget(data)]
+      });
+    case "ui.applet-pong":
+      return replaceView({
+        id: stringValue(data.viewId, "viewId"),
+        title: optionalString(data.title),
+        children: [pongAppletWidget(data)]
+      });
     case "ui.container":
       return replaceView({
         id: stringValue(data.viewId, "viewId"),
@@ -348,6 +402,39 @@ function plotWidget(data: Record<string, unknown>): PlotWidget {
   };
 }
 
+function appletWidget(data: Record<string, unknown>): WasmAppletWidget {
+  const module = asRecord(data.module);
+  return {
+    type: "wasm-applet",
+    id: stringValue(data.id, "id"),
+    module: {
+      name: optionalString(module.name),
+      url: optionalString(module.url),
+      hash: optionalString(module.hash)
+    },
+    width: optionalNumber(data.width),
+    height: optionalNumber(data.height),
+    capabilities: arrayValue(data.capabilities, "capabilities").map(appletCapability),
+    initialState: data.initialState
+  };
+}
+
+function pongAppletWidget(data: Record<string, unknown>): WasmAppletWidget {
+  return {
+    type: "wasm-applet",
+    id: optionalString(data.id) ?? `${stringValue(data.viewId, "viewId")}:pong`,
+    module: { name: "pong" },
+    width: optionalNumber(data.width) ?? 640,
+    height: optionalNumber(data.height) ?? 360,
+    capabilities: ["canvas", "keyboard", "pointer", "timer", "emit_event"]
+  };
+}
+
+function appletCapability(value: unknown): WasmAppletWidget["capabilities"][number] {
+  if (value === "canvas" || value === "pointer" || value === "keyboard" || value === "timer" || value === "emit_event") return value;
+  throw new Error(`Unsupported applet capability: ${String(value)}`);
+}
+
 function pointValue(value: unknown): PlotPoint {
   const data = asRecord(value);
   return {
@@ -387,6 +474,10 @@ function numberValue(value: unknown, name: string): number {
     throw new Error(`Expected ${name} to be a number`);
   }
   return value;
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function arrayValue(value: unknown, name: string): unknown[] {

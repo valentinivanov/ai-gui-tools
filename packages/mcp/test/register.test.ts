@@ -32,8 +32,10 @@ describe("@agentui/mcp", () => {
 
     expect(result.mappings).toContainEqual({ canonicalName: "ui.form", transportName: "ui_form" });
     expect(result.mappings).toContainEqual({ canonicalName: "ui.plot", transportName: "ui_plot" });
+    expect(result.mappings).toContainEqual({ canonicalName: "ui.applet-pong", transportName: "ui_applet-pong" });
     expect(server.tools.has("ui_form")).toBe(true);
     expect(server.tools.has("ui_plot")).toBe(true);
+    expect(server.tools.has("ui_applet-pong")).toBe(true);
     expect(server.tools.get("ui_form")?.config).toMatchObject({
       _meta: { ui: { resourceUri: defaultAgentUIResourceUri } }
     });
@@ -54,6 +56,22 @@ describe("@agentui/mcp", () => {
     expect(output.isError).toBe(false);
     expect(ui.getState().views[0]?.id).toBe("project");
     expect(output.structuredContent).toMatchObject({ ok: true, canonicalToolName: "ui.form" });
+  });
+
+  it("exposes A2UI-backed state in MCP tool results", async () => {
+    const ui = createAgentUI();
+    const server = createFakeServer();
+    const result = registerAgentUITools(server, { ui });
+
+    const output = await invokeAgentUITool(ui, result.mappings, "ui_form", {
+      viewId: "project",
+      title: "Project configuration",
+      fields: [{ type: "input", id: "name", label: "Name", value: "demo" }]
+    });
+    const structured = output.structuredContent as { result?: { a2ui?: Array<{ surfaceId: string; components: Array<{ component: string }> }> } };
+
+    expect(structured.result?.a2ui?.[0]?.surfaceId).toBe("project");
+    expect(structured.result?.a2ui?.[0]?.components.some((component) => component.component === "TextField")).toBe(true);
   });
 
   it("returns an MCP error result for invalid payloads", async () => {
